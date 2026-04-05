@@ -7,10 +7,6 @@ function formatEntry(t: DelegateTarget) {
   return lines.join("\n");
 }
 
-export function buildTeamsBlock(targets: ReadonlyArray<DelegateTarget>) {
-  return targets.map(formatEntry).join("\n");
-}
-
-export function buildTeamMembersBlock(targets: ReadonlyArray<DelegateTarget>) {
+export function buildTargetsBlock(targets: ReadonlyArray<DelegateTarget>) {
   return targets.map(formatEntry).join("\n");
 }

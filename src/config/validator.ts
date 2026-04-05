@@ -8,7 +8,7 @@ function collectAgents(config: TeamConfig) {
   const agents: string[] = [config.orchestrator.agent];
   const teamNames: string[] = [];
 
-  function walk(members: TeamConfig["members"]) {
+  function walk(members: Readonly<TeamConfig["members"]>) {
     for (const member of members) {
       if ("agent" in member) {
         agents.push(member.agent);

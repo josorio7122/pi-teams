@@ -1,7 +1,6 @@
 import type { AgentConfig } from "pi-agents";
 import { describe, expect, it } from "vitest";
 import type { TeamConfig } from "../config/parser.js";
-import type { AgentNode, TeamNode } from "./builder.js";
 import { buildTeamGraph } from "./builder.js";
 
 function stubAgent(name: string): AgentConfig {
@@ -54,8 +53,11 @@ describe("buildTeamGraph", () => {
 
     expect(graph.orchestrator.config.frontmatter.name).toBe("orchestrator");
     expect(graph.members).toHaveLength(2);
-    expect((graph.members[0] as AgentNode).type).toBe("agent");
-    expect((graph.members[0] as AgentNode).config.frontmatter.name).toBe("builder");
+    const first = graph.members[0];
+    expect(first?.type).toBe("agent");
+    if (first?.type === "agent") {
+      expect(first.config.frontmatter.name).toBe("builder");
+    }
   });
 
   it("builds nested team graph", () => {
@@ -76,13 +78,15 @@ describe("buildTeamGraph", () => {
     const graph = buildTeamGraph(config, agents);
 
     expect(graph.members).toHaveLength(1);
-    const team = graph.members[0] as TeamNode;
-    expect(team.type).toBe("team");
-    expect(team.name).toBe("Engineering");
-    expect(team.color).toBe("#ff6e96");
-    expect(team.consultWhen).toBe("Code stuff");
-    expect(team.lead.config.frontmatter.name).toBe("eng-lead");
-    expect(team.members).toHaveLength(2);
+    const team = graph.members[0];
+    expect(team?.type).toBe("team");
+    if (team?.type === "team") {
+      expect(team.name).toBe("Engineering");
+      expect(team.color).toBe("#ff6e96");
+      expect(team.consultWhen).toBe("Code stuff");
+      expect(team.lead.config.frontmatter.name).toBe("eng-lead");
+      expect(team.members).toHaveLength(2);
+    }
   });
 
   it("builds mixed graph", () => {
@@ -95,8 +99,8 @@ describe("buildTeamGraph", () => {
     const graph = buildTeamGraph(config, agents);
 
     expect(graph.members).toHaveLength(2);
-    expect((graph.members[0] as AgentNode).type).toBe("agent");
-    expect((graph.members[1] as TeamNode).type).toBe("team");
+    expect(graph.members[0]?.type).toBe("agent");
+    expect(graph.members[1]?.type).toBe("team");
   });
 
   it("builds deep nested graph", () => {
@@ -120,12 +124,19 @@ describe("buildTeamGraph", () => {
     const agents = agentMap("orchestrator", "eng-lead", "fe-lead", "react-dev");
     const graph = buildTeamGraph(config, agents);
 
-    const eng = graph.members[0] as TeamNode;
-    expect(eng.type).toBe("team");
-    const frontend = eng.members[0] as TeamNode;
-    expect(frontend.type).toBe("team");
-    expect(frontend.lead.config.frontmatter.name).toBe("fe-lead");
-    expect((frontend.members[0] as AgentNode).config.frontmatter.name).toBe("react-dev");
+    const eng = graph.members[0];
+    expect(eng?.type).toBe("team");
+    if (eng?.type === "team") {
+      const frontend = eng.members[0];
+      expect(frontend?.type).toBe("team");
+      if (frontend?.type === "team") {
+        expect(frontend.lead.config.frontmatter.name).toBe("fe-lead");
+        const dev = frontend.members[0];
+        if (dev?.type === "agent") {
+          expect(dev.config.frontmatter.name).toBe("react-dev");
+        }
+      }
+    }
   });
 
   it("propagates consultWhen on flat agents", () => {
@@ -137,10 +148,24 @@ describe("buildTeamGraph", () => {
     const agents = agentMap("orchestrator", "builder", "reviewer");
     const graph = buildTeamGraph(config, agents);
 
-    const builder = graph.members[0] as AgentNode;
-    expect(builder.consultWhen).toBe("Implementation, code");
-    const reviewer = graph.members[1] as AgentNode;
-    expect(reviewer.consultWhen).toBeUndefined();
+    const builder = graph.members[0];
+    if (builder?.type === "agent") {
+      expect(builder.consultWhen).toBe("Implementation, code");
+    }
+    const reviewer = graph.members[1];
+    if (reviewer?.type === "agent") {
+      expect(reviewer.consultWhen).toBeUndefined();
+    }
+  });
+
+  it("throws a descriptive error when an agent is missing from the resolved map", () => {
+    const config: TeamConfig = {
+      paths: { agents: ".pi/agents/" },
+      orchestrator: { agent: "orchestrator" },
+      members: [{ agent: "missing-agent" }],
+    };
+    const agents = agentMap("orchestrator");
+    expect(() => buildTeamGraph(config, agents)).toThrow(/Agent "missing-agent" not found in resolved agents map/);
   });
 
   it("requires lead on every team", () => {
@@ -152,8 +177,11 @@ describe("buildTeamGraph", () => {
     const agents = agentMap("orchestrator", "eng-lead", "dev-a", "dev-b");
     const graph = buildTeamGraph(config, agents);
 
-    const team = graph.members[0] as TeamNode;
-    expect(team.lead.config.frontmatter.name).toBe("eng-lead");
-    expect(team.members).toHaveLength(2);
+    const team = graph.members[0];
+    expect(team?.type).toBe("team");
+    if (team?.type === "team") {
+      expect(team.lead.config.frontmatter.name).toBe("eng-lead");
+      expect(team.members).toHaveLength(2);
+    }
   });
 });

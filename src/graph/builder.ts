@@ -29,13 +29,13 @@ function toAgentNode(params: {
   consultWhen?: string | undefined;
 }): AgentNode {
   const { agents, name, consultWhen } = params;
-  return consultWhen
-    ? { type: "agent", config: agents.get(name)!, consultWhen }
-    : { type: "agent", config: agents.get(name)! };
+  const config = agents.get(name);
+  if (!config) throw new Error(`Agent "${name}" not found in resolved agents map`);
+  return consultWhen ? { type: "agent", config, consultWhen } : { type: "agent", config };
 }
 
 function buildMembers(
-  members: TeamConfig["members"],
+  members: Readonly<TeamConfig["members"]>,
   agents: ReadonlyMap<string, AgentConfig>,
 ): ReadonlyArray<GraphNode> {
   return members.map((member) => {
@@ -49,8 +49,8 @@ function buildMembers(
     return {
       type: "team",
       name: member.team,
-      color: member.color,
-      consultWhen: member["consult-when"],
+      ...(member.color ? { color: member.color } : {}),
+      ...(member["consult-when"] ? { consultWhen: member["consult-when"] } : {}),
       lead: toAgentNode({ agents, name: member.lead }),
       members: buildMembers(member.members, agents),
     } satisfies TeamNode;

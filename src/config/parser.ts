@@ -12,7 +12,7 @@ type TeamNode = {
   color?: string | undefined;
   lead: string;
   "consult-when"?: string | undefined;
-  members: TeamMember[];
+  members: readonly TeamMember[];
 };
 
 const TeamMemberSchema: z.ZodType<TeamMember> = z.union([
@@ -54,7 +54,8 @@ export function parseTeamFile(content: string): ParseResult {
   const parsed = TeamConfigSchema.safeParse(frontmatter);
   if (!parsed.success) {
     const first = parsed.error.issues[0];
-    return { ok: false, error: `${first?.path.join(".")}: ${first?.message}` };
+    if (!first) return { ok: false, error: "Validation failed" };
+    return { ok: false, error: `${first.path.join(".")}: ${first.message}` };
   }
 
   return { ok: true, value: parsed.data };

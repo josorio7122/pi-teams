@@ -1,13 +1,8 @@
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { resolveAgents } from "./resolver.js";
-
-const tmpDir = join(import.meta.dirname, "__test-agents__");
-
-function writeAgent(name: string, content: string) {
-  writeFileSync(join(tmpDir, `${name}.md`), content, "utf-8");
-}
 
 function validAgent(name: string) {
   return `---
@@ -47,61 +42,66 @@ You are ${name}.
 `;
 }
 
-beforeEach(() => {
-  if (!existsSync(tmpDir)) mkdirSync(tmpDir, { recursive: true });
-});
-
-afterEach(() => {
-  const { rmSync } = require("node:fs");
-  rmSync(tmpDir, { recursive: true, force: true });
-});
-
 describe("resolveAgents", () => {
-  it("resolves a single agent by name", () => {
-    writeAgent("builder", validAgent("builder"));
-    const result = resolveAgents({ agentsDir: tmpDir, names: ["builder"] });
+  let tmpDir: string;
+
+  async function writeAgent(name: string, content: string) {
+    await writeFile(join(tmpDir, `${name}.md`), content, "utf-8");
+  }
+
+  beforeEach(async () => {
+    tmpDir = await mkdtemp(join(tmpdir(), "pi-teams-resolver-"));
+  });
+
+  afterEach(async () => {
+    await rm(tmpDir, { recursive: true, force: true });
+  });
+
+  it("resolves a single agent by name", async () => {
+    await writeAgent("builder", validAgent("builder"));
+    const result = await resolveAgents({ agentsDir: tmpDir, names: ["builder"] });
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.agents.get("builder")).toBeDefined();
     expect(result.agents.get("builder")!.frontmatter.name).toBe("builder");
   });
 
-  it("resolves multiple agents", () => {
-    writeAgent("builder", validAgent("builder"));
-    writeAgent("reviewer", validAgent("reviewer"));
-    const result = resolveAgents({ agentsDir: tmpDir, names: ["builder", "reviewer"] });
+  it("resolves multiple agents", async () => {
+    await writeAgent("builder", validAgent("builder"));
+    await writeAgent("reviewer", validAgent("reviewer"));
+    const result = await resolveAgents({ agentsDir: tmpDir, names: ["builder", "reviewer"] });
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.agents.size).toBe(2);
   });
 
-  it("fails when agent file is missing", () => {
-    const result = resolveAgents({ agentsDir: tmpDir, names: ["nonexistent"] });
+  it("fails when agent file is missing", async () => {
+    const result = await resolveAgents({ agentsDir: tmpDir, names: ["nonexistent"] });
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.errors[0]).toContain("nonexistent");
     expect(result.errors[0]).toContain("not found");
   });
 
-  it("fails when agent file has invalid frontmatter", () => {
-    writeFileSync(join(tmpDir, "broken.md"), "---\nname: broken\n---\nBody", "utf-8");
-    const result = resolveAgents({ agentsDir: tmpDir, names: ["broken"] });
+  it("fails when agent file has invalid frontmatter", async () => {
+    await writeFile(join(tmpDir, "broken.md"), "---\nname: broken\n---\nBody", "utf-8");
+    const result = await resolveAgents({ agentsDir: tmpDir, names: ["broken"] });
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.errors.length).toBeGreaterThan(0);
   });
 
-  it("fails when frontmatter name does not match referenced name", () => {
-    writeAgent("wrong", validAgent("actually-different"));
-    const result = resolveAgents({ agentsDir: tmpDir, names: ["wrong"] });
+  it("fails when frontmatter name does not match referenced name", async () => {
+    await writeAgent("wrong", validAgent("actually-different"));
+    const result = await resolveAgents({ agentsDir: tmpDir, names: ["wrong"] });
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.errors[0]).toContain("wrong");
     expect(result.errors[0]).toContain("actually-different");
   });
 
-  it("collects all errors instead of failing on first", () => {
-    const result = resolveAgents({ agentsDir: tmpDir, names: ["missing-a", "missing-b"] });
+  it("collects all errors instead of failing on first", async () => {
+    const result = await resolveAgents({ agentsDir: tmpDir, names: ["missing-a", "missing-b"] });
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.errors).toHaveLength(2);

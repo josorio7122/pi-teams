@@ -1,5 +1,9 @@
 node_modules/
 dist/
+coverage/
+.env
+.env.local
+*.tsbuildinfo
 
 # Agent catalog (private repo: pi-teams-catalog)
 .pi/
