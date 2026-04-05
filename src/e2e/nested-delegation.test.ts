@@ -185,8 +185,6 @@ describe("e2e: nested delegation (orchestrator → lead → worker)", () => {
       sharedContext: [],
       footerState,
       agents: resolved.agents,
-      setWidget: () => {},
-      sendMessage: () => {},
     });
 
     const guidelines = buildDelegateGuidelines(targets);
