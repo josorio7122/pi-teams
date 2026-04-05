@@ -92,7 +92,7 @@ export function createDelegateTool(params: CreateDelegateToolParams): ToolDefini
     },
 
     // biome-ignore lint/complexity/useMaxParams: implements Pi's ToolDefinition.execute (5 positional params)
-    async execute(_toolCallId, toolParams: DelegateInput, signal: AbortSignal | undefined, _onUpdate, _ctx) {
+    async execute(_toolCallId, toolParams: DelegateInput, signal: AbortSignal | undefined, onUpdate, _ctx) {
       // Bail immediately if already cancelled
       if (signal?.aborted) throw new Error("Delegation cancelled");
 
@@ -102,14 +102,19 @@ export function createDelegateTool(params: CreateDelegateToolParams): ToolDefini
         throw new Error(`Unknown delegate target "${toolParams.target}". Available: ${available}`);
       }
 
-      // Write delegation entry to shared conversation ledger.
-      // NOTE: appendFile writes are atomic for single lines under the OS page size,
-      // so concurrent delegations will not corrupt individual JSON lines. However,
-      // parallel delegation may interleave entry order in the log file.
       // Record delegation event for conversation view
       const scopeStart = footerState.getEvents().length;
       footerState.addEvent({ type: "delegation", from: callerName, to: toolParams.target, task: toolParams.task });
       footerState.setRunning(toolParams.target);
+
+      // Subscribe to footerState changes so nested events trigger re-renders
+      const unsubscribe = footerState.subscribe(() => {
+        const scopeEvents = footerState.getEvents().slice(scopeStart);
+        onUpdate?.({
+          content: [{ type: "text", text: "" }],
+          details: { events: scopeEvents },
+        });
+      });
 
       await appendToLog(conversationLogPath, {
         ts: new Date().toISOString(),
@@ -125,10 +130,12 @@ export function createDelegateTool(params: CreateDelegateToolParams): ToolDefini
       try {
         result = await runAgentFn(runParams);
       } catch (err) {
+        unsubscribe();
         const message = err instanceof Error ? err.message : String(err);
         footerState.setError({ name: toolParams.target, error: message });
         throw err;
       }
+      unsubscribe();
 
       if (result.error) {
         footerState.setError({ name: toolParams.target, error: result.error, metrics: result.metrics });

@@ -17,6 +17,7 @@ export type FooterState = Readonly<{
   allMetrics: () => ReadonlyArray<AgentMetrics>;
   addEvent: (event: ConversationEvent) => void;
   getEvents: () => ReadonlyArray<ConversationEvent>;
+  subscribe: (listener: () => void) => () => void;
 }>;
 
 export type ConversationEvent = Readonly<
@@ -28,27 +29,34 @@ const IDLE: AgentStatus = { status: "idle" };
 export function createFooterState(params: { readonly onUpdate: () => void }): FooterState {
   const agents = new Map<string, AgentStatus>();
   const events: ConversationEvent[] = [];
+  const listeners = new Set<() => void>();
+
+  const notify = () => params.onUpdate();
+  const notifyWithListeners = () => {
+    params.onUpdate();
+    for (const listener of listeners) listener();
+  };
 
   return {
     get: (name) => agents.get(name) ?? IDLE,
     setRunning: (name) => {
       agents.set(name, { status: "running" });
-      params.onUpdate();
+      notify();
     },
     updateMetrics: ({ name, metrics }) => {
       const current = agents.get(name);
       if (current?.status === "running") {
         agents.set(name, { status: "running", metrics });
-        params.onUpdate();
+        notify();
       }
     },
     setDone: ({ name, metrics }) => {
       agents.set(name, { status: "done", metrics });
-      params.onUpdate();
+      notify();
     },
     setError: ({ name, error, metrics }) => {
       agents.set(name, { status: "error", error, ...(metrics ? { metrics } : {}) });
-      params.onUpdate();
+      notify();
     },
     hasRunning: () => [...agents.values()].some((s) => s.status === "running"),
     allMetrics: () => {
@@ -60,8 +68,14 @@ export function createFooterState(params: { readonly onUpdate: () => void }): Fo
     },
     addEvent: (event) => {
       events.push(event);
-      params.onUpdate();
+      notifyWithListeners();
     },
     getEvents: () => events,
+    subscribe: (listener) => {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
+    },
   };
 }

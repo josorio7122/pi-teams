@@ -101,6 +101,29 @@ describe("createFooterState", () => {
     expect(state.getEvents()[1]!.type).toBe("response");
   });
 
+  it("subscribe fires only on addEvent", () => {
+    const state = createFooterState({ onUpdate: () => {} });
+    const listener = vi.fn();
+    state.subscribe(listener);
+    state.setRunning("a");
+    expect(listener).toHaveBeenCalledTimes(0); // status changes don't notify
+    state.addEvent({ type: "response", agent: "a", output: "x" });
+    expect(listener).toHaveBeenCalledTimes(1); // only addEvent notifies
+    state.setDone({ name: "a", metrics });
+    expect(listener).toHaveBeenCalledTimes(1); // still 1
+  });
+
+  it("unsubscribe stops notifications", () => {
+    const state = createFooterState({ onUpdate: () => {} });
+    const listener = vi.fn();
+    const unsub = state.subscribe(listener);
+    state.addEvent({ type: "response", agent: "a", output: "x" });
+    expect(listener).toHaveBeenCalledTimes(1);
+    unsub();
+    state.addEvent({ type: "response", agent: "a", output: "y" });
+    expect(listener).toHaveBeenCalledTimes(1); // no more after unsub
+  });
+
   it("calls onUpdate when event is added", () => {
     const onUpdate = vi.fn();
     const state = createFooterState({ onUpdate });
