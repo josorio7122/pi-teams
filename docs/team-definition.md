@@ -44,7 +44,7 @@ members:
   # A team — a named group with optional lead and its own members
   - team: <team-display-name>
     color: "<hex>"           # Optional, for TUI display
-    lead: <agent-name>       # Optional coordinator for this team
+    lead: <agent-name>       # Required coordinator for this team
     consult-when: "<text>"   # Hint for when to route to this team
     members:
       - agent: <agent-name>
@@ -203,6 +203,55 @@ The team structure is injected as template variables into agent prompts:
 - **Workers** get nothing extra — they execute, they don't delegate
 
 These variables are resolved by pi-agents' `resolveVariables` (used as a library function).
+
+## Extension Lifecycle
+
+pi-teams hooks into two pi framework events:
+
+### `session_start`
+
+1. Reads `.pi/teams/teams.md` — if missing, extension is silently inactive
+2. Parses YAML frontmatter → `TeamConfig`
+3. Validates config (duplicate agents, required fields)
+4. Resolves each agent by loading its `.md` file via pi-agents (`parseAgentFile` + `validateAgent`)
+5. Builds a `TeamGraph` — orchestrator node + nested team/member nodes
+6. Creates session directory (`.pi/sessions/<uuid>/`) and initialises `conversation.jsonl`
+7. Discovers shared context (`AGENTS.md`, `CLAUDE.md`) via pi-agents
+8. Registers the `delegate` tool for the orchestrator via `pi.registerTool()`
+9. Restricts the orchestrator to only its configured tools via `pi.setActiveTools()` — this prevents the orchestrator from using `bash`/`write`/`edit` directly
+
+### `before_agent_start`
+
+Fires before the orchestrator's first LLM call:
+
+1. Reads the orchestrator's skills, knowledge files, and `conversation.jsonl` in parallel
+2. Calls pi-agents' `assembleSystemPrompt()` with `extraVariables: { TEAMS_BLOCK }` — a YAML block describing each delegate target and when to consult them
+3. Returns the assembled system prompt to the framework
+
+## Delegate Tool Behavior
+
+The `delegate` tool is the mechanism for routing tasks through the hierarchy.
+
+### On each delegation call:
+
+1. Appends a delegation entry to `conversation.jsonl`:
+   ```jsonl
+   {"ts":"...","from":"orchestrator","to":"eng-lead","message":"Build feature X","type":"delegation"}
+   ```
+2. Calls pi-agents' `runAgent()` with the target agent's config and the task
+3. Returns the agent's output as the tool result
+
+### Nested delegation for leads:
+
+When the target is a team lead (has `delegate` in its frontmatter `tools`):
+
+- pi-teams recursively creates a **nested delegate tool** scoped to the lead's team members
+- The nested tool is passed via `customTools` to `runAgent()`
+- The lead receives `{{TEAM_MEMBERS_BLOCK}}` via `extraVariables` — a YAML block describing its own members and their `consult-when` hints
+
+### Shared context propagation:
+
+Shared context files (`AGENTS.md`, `CLAUDE.md`) discovered at `session_start` are passed through to every `runAgent()` call, including nested delegations. Every agent in the hierarchy sees the same shared context.
 
 ## Startup Validation
 
