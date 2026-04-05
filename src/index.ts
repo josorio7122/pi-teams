@@ -128,10 +128,9 @@ export default function (pi: ExtensionAPI) {
     const orch = teamGraph.orchestrator.config;
     const fm = orch.frontmatter;
 
-    // Read orchestrator's skills, knowledge, and conversation log — parallel I/O
-    const [projectKnowledge, generalKnowledge, conversationLog, ...skillResults] = await Promise.all([
-      readFileSafe(join(ctx.cwd, fm.knowledge.project.path)),
-      readFileSafe(join(ctx.cwd, fm.knowledge.general.path)),
+    // Read orchestrator's skills and conversation log — parallel I/O
+    // Knowledge files are NOT pre-loaded; agent reads them via read-knowledge tool
+    const [conversationLog, ...skillResults] = await Promise.all([
       readFileSafe(conversationLogPath),
       ...fm.skills.map((s) => readFileSafe(join(ctx.cwd, s.path))),
     ]);
@@ -148,8 +147,6 @@ export default function (pi: ExtensionAPI) {
       sessionDir,
       conversationLogContent: conversationLog,
       skillContents,
-      projectKnowledgeContent: projectKnowledge,
-      generalKnowledgeContent: generalKnowledge,
       extraVariables: { TEAMS_BLOCK: buildTargetsBlock(orchestratorTargets) },
       ...(sharedContextFiles.length > 0 ? { sharedContextContents: sharedContextFiles } : {}),
     });
