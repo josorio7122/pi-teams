@@ -2,7 +2,7 @@ import type { AgentMetrics } from "pi-agents";
 
 export type AgentStatus = Readonly<
   | { status: "idle" }
-  | { status: "running" }
+  | { status: "running"; metrics?: AgentMetrics }
   | { status: "done"; metrics: AgentMetrics }
   | { status: "error"; error: string; metrics?: AgentMetrics }
 >;
@@ -10,6 +10,7 @@ export type AgentStatus = Readonly<
 export type FooterState = Readonly<{
   get: (name: string) => AgentStatus;
   setRunning: (name: string) => void;
+  updateMetrics: (params: { readonly name: string; readonly metrics: AgentMetrics }) => void;
   setDone: (params: { readonly name: string; readonly metrics: AgentMetrics }) => void;
   setError: (params: { readonly name: string; readonly error: string; readonly metrics?: AgentMetrics }) => void;
   hasRunning: () => boolean;
@@ -33,6 +34,13 @@ export function createFooterState(params: { readonly onUpdate: () => void }): Fo
     setRunning: (name) => {
       agents.set(name, { status: "running" });
       params.onUpdate();
+    },
+    updateMetrics: ({ name, metrics }) => {
+      const current = agents.get(name);
+      if (current?.status === "running") {
+        agents.set(name, { status: "running", metrics });
+        params.onUpdate();
+      }
     },
     setDone: ({ name, metrics }) => {
       agents.set(name, { status: "done", metrics });

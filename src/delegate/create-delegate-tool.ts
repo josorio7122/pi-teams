@@ -60,6 +60,9 @@ function buildRunParams(params: {
     ...(Object.keys(extraVariables).length > 0 ? { extraVariables } : {}),
     ...(customTools ? { customTools } : {}),
     ...(tp.sharedContext.length > 0 ? { sharedContext: tp.sharedContext } : {}),
+    onUpdate: (metrics) => {
+      tp.footerState.updateMetrics({ name: match.config.frontmatter.name, metrics });
+    },
   };
 }
 

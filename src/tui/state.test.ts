@@ -56,12 +56,40 @@ describe("createFooterState", () => {
     expect(state.hasRunning()).toBe(false);
   });
 
+  it("updates metrics for running agent", () => {
+    const onUpdate = vi.fn();
+    const state = createFooterState({ onUpdate });
+    state.setRunning("builder");
+    state.updateMetrics({ name: "builder", metrics });
+    const s = state.get("builder");
+    expect(s.status).toBe("running");
+    if (s.status === "running") expect(s.metrics).toBe(metrics);
+    expect(onUpdate).toHaveBeenCalledTimes(2); // setRunning + updateMetrics
+  });
+
+  it("ignores updateMetrics for non-running agent", () => {
+    const onUpdate = vi.fn();
+    const state = createFooterState({ onUpdate });
+    state.setDone({ name: "builder", metrics });
+    onUpdate.mockClear();
+    state.updateMetrics({ name: "builder", metrics });
+    expect(onUpdate).not.toHaveBeenCalled(); // no update — agent is done, not running
+  });
+
+  it("includes running agent metrics in allMetrics", () => {
+    const state = createFooterState({ onUpdate: () => {} });
+    state.setRunning("a");
+    state.updateMetrics({ name: "a", metrics });
+    state.setDone({ name: "b", metrics });
+    expect(state.allMetrics()).toHaveLength(2);
+  });
+
   it("collects all metrics from done and error agents", () => {
     const state = createFooterState({ onUpdate: () => {} });
     state.setDone({ name: "a", metrics });
     state.setDone({ name: "b", metrics });
     state.setRunning("c");
-    expect(state.allMetrics()).toHaveLength(2);
+    expect(state.allMetrics()).toHaveLength(2); // running without metrics excluded
   });
 
   it("tracks conversation events", () => {

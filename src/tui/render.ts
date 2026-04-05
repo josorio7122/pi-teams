@@ -22,8 +22,10 @@ function statusText(params: { readonly status: AgentStatus; readonly theme: Rend
   switch (status.status) {
     case "idle":
       return theme.fg("dim", "idle");
-    case "running":
-      return theme.fg("accent", spinnerFrame());
+    case "running": {
+      const spinner = theme.fg("accent", spinnerFrame());
+      return status.metrics ? `${spinner} ${theme.fg("dim", formatStats(status.metrics))}` : spinner;
+    }
     case "done":
       return `${theme.fg("success", "✓")} ${theme.fg("dim", formatStats(status.metrics))}`;
     case "error":
