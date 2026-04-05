@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
-import type { ContextFile } from "pi-agents";
+import type { AgentConfig, ContextFile } from "pi-agents";
 import { assembleSystemPrompt, discoverContextFiles, ensureLogExists, readFileSafe, runAgent } from "pi-agents";
 import { parseTeamFile } from "./config/parser.js";
 import { validateTeamConfig } from "./config/validator.js";
@@ -13,10 +13,20 @@ import { buildTargetsBlock } from "./delegate/variables.js";
 import type { TeamGraph } from "./graph/builder.js";
 import { buildTeamGraph } from "./graph/builder.js";
 import { resolveAgents } from "./graph/resolver.js";
+import { renderConversation } from "./tui/conversation.js";
 import { renderFooter } from "./tui/render.js";
+import type { ConversationEvent } from "./tui/state.js";
 import { createFooterState } from "./tui/state.js";
 
 export default function (pi: ExtensionAPI) {
+  // Register conversation message renderer
+  // biome-ignore lint/complexity/useMaxParams: Pi's MessageRenderer requires 3 params
+  pi.registerMessageRenderer("pi-teams-conversation", (message, _options, theme) => {
+    const events = (message.details as { events?: ReadonlyArray<ConversationEvent> })?.events ?? [];
+    return renderConversation({ events, agents: resolvedAgents, theme });
+  });
+
+  let resolvedAgents: ReadonlyMap<string, AgentConfig> = new Map();
   // NOTE: pi guarantees session_start completes before before_agent_start fires,
   // so reads of these closure variables in before_agent_start are always after writes.
   let teamGraph: TeamGraph | undefined;
@@ -62,6 +72,7 @@ export default function (pi: ExtensionAPI) {
       }
 
       // Phase 3: Build team graph
+      resolvedAgents = resolved.agents;
       teamGraph = buildTeamGraph(parsed.value, resolved.agents);
       orchestratorTargets = extractTargets(teamGraph.members);
 
@@ -90,6 +101,8 @@ export default function (pi: ExtensionAPI) {
         sharedContext: sharedContextFiles,
         footerState,
         agents: resolved.agents,
+        setWidget: (key, content) => ctx.ui.setWidget(key, content as Parameters<typeof ctx.ui.setWidget>[1]),
+        sendMessage: (msg) => pi.sendMessage(msg, { deliverAs: "steer" }),
       });
       pi.registerTool(delegateTool);
 

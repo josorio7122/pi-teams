@@ -1,8 +1,10 @@
 import type { ToolDefinition } from "@mariozechner/pi-coding-agent";
+import { Container } from "@mariozechner/pi-tui";
 import { type Static, Type } from "@sinclair/typebox";
 import type { AgentConfig, RunAgentParams, RunAgentResult } from "pi-agents";
 import { appendToLog } from "pi-agents";
 import { renderConversation } from "../tui/conversation.js";
+import type { RenderTheme } from "../tui/render.js";
 import type { ConversationEvent, FooterState } from "../tui/state.js";
 import { buildDelegateGuidelines } from "./guidelines.js";
 import type { DelegateTarget } from "./targets.js";
@@ -22,6 +24,8 @@ type CreateDelegateToolParams = Readonly<{
   sharedContext: NonNullable<RunAgentParams["sharedContext"]>;
   footerState: FooterState;
   agents: ReadonlyMap<string, AgentConfig>;
+  setWidget: (key: string, content: unknown) => void;
+  sendMessage: (message: { customType: string; content: string; display: boolean; details: unknown }) => void;
 }>;
 
 const DelegateParams = Type.Object({
@@ -74,18 +78,13 @@ export function createDelegateTool(params: CreateDelegateToolParams): ToolDefini
     promptGuidelines: [...buildDelegateGuidelines(targets)],
     parameters: DelegateParams,
 
-    renderCall(args, theme) {
-      const events: ConversationEvent[] = [{ type: "delegation", from: callerName, to: args.target, task: args.task }];
-      return renderConversation({ events, agents: params.agents, theme });
+    renderCall() {
+      return new Container(); // Widget handles real-time display
     },
 
     // biome-ignore lint/complexity/useMaxParams: implements Pi's ToolDefinition.renderResult (4 positional params)
-    renderResult(result, _options, theme) {
-      // Skip first event (delegation) — renderCall already shows it.
-      // Show only nested delegations + all responses.
-      const all = (result.details as { events?: ReadonlyArray<ConversationEvent> })?.events ?? [];
-      const events = all.slice(1);
-      return renderConversation({ events, agents: params.agents, theme });
+    renderResult(_result, _options, _theme) {
+      return new Container(); // Custom message handles permanent display
     },
 
     // biome-ignore lint/complexity/useMaxParams: implements Pi's ToolDefinition.execute (5 positional params)
@@ -99,13 +98,23 @@ export function createDelegateTool(params: CreateDelegateToolParams): ToolDefini
         throw new Error(`Unknown delegate target "${toolParams.target}". Available: ${available}`);
       }
 
-      // Write delegation entry to shared conversation ledger.
-      // NOTE: appendFile writes are atomic for single lines under the OS page size,
-      // so concurrent delegations will not corrupt individual JSON lines. However,
-      // parallel delegation may interleave entry order in the log file.
-      // Record delegation event for conversation view
+      // Record delegation event
       const scopeStart = footerState.getEvents().length;
       footerState.addEvent({ type: "delegation", from: callerName, to: toolParams.target, task: toolParams.task });
+
+      // Show widget with delegation block + pending response box
+      const targetName = toolParams.target;
+      const showPending = (phase: "initializing" | "working") => {
+        const events = footerState.getEvents().slice(scopeStart);
+        params.setWidget("pi-teams-conv", (_tui: unknown, theme: RenderTheme) => {
+          const dots = ".".repeat((Math.floor(Date.now() / 500) % 3) + 1);
+          const pending: ConversationEvent = { type: "response", agent: targetName, output: `${phase}${dots}` };
+          const comp = renderConversation({ events: [...events, pending], agents: params.agents, theme });
+          return { render: (w: number) => comp.render(w), invalidate: () => comp.invalidate() };
+        });
+      };
+      showPending("initializing");
+
       footerState.setRunning(toolParams.target);
 
       await appendToLog(conversationLogPath, {
@@ -116,6 +125,9 @@ export function createDelegateTool(params: CreateDelegateToolParams): ToolDefini
         type: "delegation",
       });
 
+      // Switch to "working." phase
+      showPending("working");
+
       const runParams = buildRunParams({ match, task: toolParams.task, signal, toolParams: params });
 
       let result: Awaited<ReturnType<RunAgentFn>>;
@@ -124,6 +136,7 @@ export function createDelegateTool(params: CreateDelegateToolParams): ToolDefini
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         footerState.setError({ name: toolParams.target, error: message });
+        params.setWidget("pi-teams-conv", undefined);
         throw err;
       }
 
@@ -133,13 +146,22 @@ export function createDelegateTool(params: CreateDelegateToolParams): ToolDefini
         footerState.setDone({ name: toolParams.target, metrics: result.metrics });
       }
 
-      // Record response event for conversation view
+      // Record response event
       footerState.addEvent({ type: "response", agent: toolParams.target, output: result.output });
       const scopeEvents = footerState.getEvents().slice(scopeStart);
 
+      // Clear widget, inject permanent custom message
+      params.setWidget("pi-teams-conv", undefined);
+      params.sendMessage({
+        customType: "pi-teams-conversation",
+        content: "delegation",
+        display: true,
+        details: { events: scopeEvents },
+      });
+
       return {
         content: [{ type: "text", text: result.output }],
-        details: { metrics: result.metrics, error: result.error, events: scopeEvents },
+        details: { metrics: result.metrics, error: result.error },
       };
     },
   };
