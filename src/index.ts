@@ -3,7 +3,14 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import type { ContextFile } from "pi-agents";
-import { assembleSystemPrompt, discoverContextFiles, ensureLogExists, readFileSafe, runAgent } from "pi-agents";
+import {
+  appendToLog,
+  assembleSystemPrompt,
+  discoverContextFiles,
+  ensureLogExists,
+  readFileSafe,
+  runAgent,
+} from "pi-agents";
 import { parseTeamFile } from "./config/parser.js";
 import { validateTeamConfig } from "./config/validator.js";
 import { createDelegateTool } from "./delegate/create-delegate-tool.js";
@@ -122,7 +129,7 @@ export default function (pi: ExtensionAPI) {
     }
   });
 
-  pi.on("before_agent_start", async (_event, ctx) => {
+  pi.on("before_agent_start", async (event, ctx) => {
     if (!teamGraph || !sessionDir || !conversationLogPath) return;
 
     const orch = teamGraph.orchestrator.config;
@@ -151,6 +158,39 @@ export default function (pi: ExtensionAPI) {
       ...(sharedContextFiles.length > 0 ? { sharedContextContents: sharedContextFiles } : {}),
     });
 
+    // Log user message to conversation log
+    await appendToLog(conversationLogPath, {
+      ts: new Date().toISOString(),
+      from: "user",
+      to: teamGraph.orchestrator.config.frontmatter.name,
+      message: event.prompt,
+    });
+
     return { systemPrompt };
+  });
+
+  pi.on("agent_end", async (event) => {
+    if (!conversationLogPath || !teamGraph) return;
+
+    // Extract orchestrator's text response from the last assistant message
+    for (let i = event.messages.length - 1; i >= 0; i--) {
+      const msg = event.messages[i];
+      if (!msg || !("role" in msg) || msg.role !== "assistant" || !Array.isArray(msg.content)) continue;
+      {
+        const text = msg.content
+          .filter((p): p is { type: "text"; text: string } => "type" in p && p.type === "text" && "text" in p)
+          .map((p) => p.text)
+          .join("");
+        if (text.trim()) {
+          await appendToLog(conversationLogPath, {
+            ts: new Date().toISOString(),
+            from: teamGraph.orchestrator.config.frontmatter.name,
+            to: "user",
+            message: text,
+          });
+          break;
+        }
+      }
+    }
   });
 }
