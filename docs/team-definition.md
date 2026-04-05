@@ -41,18 +41,15 @@ members:
   # A flat agent — orchestrator delegates directly to it
   - agent: <agent-name>
 
-  # A team — a named group with optional lead and its own members
-  - team: <team-display-name>
-    color: "<hex>"           # Optional, for TUI display
-    lead: <agent-name>       # Required coordinator for this team
-    consult-when: "<text>"   # Hint for when to route to this team
+  # A team node — discriminated by `lead:` + `members:` (no separate name field)
+  - lead: <agent-name>       # Discriminant: presence of lead+members defines a team
+    consult-when: "<text>"   # Hint for when to route to this lead
     members:
       - agent: <agent-name>
       - agent: <agent-name>
 
       # Deeper nesting — a sub-team within a team
-      - team: <sub-team-name>
-        lead: <agent-name>
+      - lead: <agent-name>
         consult-when: "<text>"
         members:
           - agent: <agent-name>
@@ -61,16 +58,15 @@ members:
 ### Rules
 
 - **`agent`** — resolves to `{paths.agents}/{name}.md`. The file must exist and its frontmatter `name` must match.
-- **`team`** — a display name for grouping. Not an agent — just a label.
-- **`lead`** — **required** on every team. The lead is the coordinator — the parent delegates to the lead, and the lead delegates to the team's members. The Orchestrator is the implicit lead of the top level. If you don't need a coordinator, use flat agents instead of a `team` wrapper.
+- **`lead`** — presence of `lead:` + `members:` is what defines a team node (as opposed to a flat `agent:` node). The lead is the coordinator — the parent delegates to the lead, and the lead delegates to its members. The Orchestrator is the implicit top-level lead. If you don't need a coordinator, use flat agents instead of a `lead` wrapper.
 - **`consult-when`** — optional text injected into the parent's prompt as a routing hint. Helps the LLM decide when to delegate here.
-- **`members`** — recursive. Each item is either `{ agent: name }` or `{ team: name, members: [...] }`.
+- **`members`** — recursive. Each item is either `{ agent: name }` or `{ lead: name, members: [...] }`.
 - Nesting depth is unbounded in the schema but practically limited by context window size.
 
 ### Hierarchy Rules
 
 - The **Orchestrator** is the top-level lead — it coordinates everything below it
-- Every **team** must have a **lead** — no optional coordinators
+- A **team node** is defined by `lead:` + `members:` — there is no separate team name field; the lead agent is the team's identity
 - **Flat agents** under any coordinator don't need a team wrapper
 - The tree defines the role — if an agent sits at a leaf, it's a worker in that context
 
@@ -110,25 +106,19 @@ orchestrator:
   agent: orchestrator
 
 members:
-  - team: Planning
-    color: "#fede5d"
-    lead: planning-lead
+  - lead: planning-lead
     consult-when: Requirements, scope, prioritization, user stories
     members:
       - agent: product-manager
       - agent: ux-researcher
 
-  - team: Engineering
-    color: "#ff6e96"
-    lead: engineering-lead
+  - lead: engineering-lead
     consult-when: Architecture, implementation, APIs, code
     members:
       - agent: frontend-dev
       - agent: backend-dev
 
-  - team: Validation
-    color: "#ff9e64"
-    lead: validation-lead
+  - lead: validation-lead
     consult-when: Testing, security, quality, regressions
     members:
       - agent: qa-engineer
@@ -149,8 +139,7 @@ orchestrator:
 members:
   - agent: architect
 
-  - team: Engineering
-    lead: engineering-lead
+  - lead: engineering-lead
     consult-when: Implementation, code changes, refactoring
     members:
       - agent: frontend-dev
@@ -171,19 +160,16 @@ orchestrator:
   agent: orchestrator
 
 members:
-  - team: Engineering
-    lead: engineering-lead
+  - lead: engineering-lead
     consult-when: All implementation work
     members:
-      - team: Frontend
-        lead: frontend-lead
+      - lead: frontend-lead
         consult-when: UI, components, styling, client state
         members:
           - agent: react-dev
           - agent: css-specialist
 
-      - team: Backend
-        lead: backend-lead
+      - lead: backend-lead
         consult-when: APIs, databases, infrastructure
         members:
           - agent: api-dev
@@ -262,9 +248,9 @@ All validation happens at startup, before any agent runs. No runtime surprises.
 1. Read `.pi/teams/teams.md`
 2. Parse YAML frontmatter
 3. Validate structure: `paths.agents` exists, `orchestrator.agent` is set, `members` is a non-empty list
-4. Walk the tree — every node must be `{ agent: name }` or `{ team: name, members: [...] }`
+4. Walk the tree — every node must be `{ agent: name }` or `{ lead: name, members: [...] }`
 5. Check for duplicate agent references (same name appearing twice)
-6. Check for circular references in nested teams
+6. Circular references are structurally impossible — the YAML schema only nests downward
 
 ### Phase 2: Validate every referenced agent
 

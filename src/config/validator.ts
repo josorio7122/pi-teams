@@ -6,14 +6,12 @@ type ValidateResult = ValidateSuccess | ValidateFailure;
 
 function collectAgents(config: TeamConfig) {
   const agents: string[] = [config.orchestrator.agent];
-  const teamNames: string[] = [];
 
   function walk(members: Readonly<TeamConfig["members"]>) {
     for (const member of members) {
       if ("agent" in member) {
         agents.push(member.agent);
       } else {
-        teamNames.push(member.team);
         agents.push(member.lead);
         walk(member.members);
       }
@@ -21,11 +19,11 @@ function collectAgents(config: TeamConfig) {
   }
 
   walk(config.members);
-  return { agents, teamNames };
+  return { agents };
 }
 
 export function validateTeamConfig(config: TeamConfig): ValidateResult {
-  const { agents, teamNames } = collectAgents(config);
+  const { agents } = collectAgents(config);
   const errors: string[] = [];
 
   // Check duplicate agents
@@ -35,15 +33,6 @@ export function validateTeamConfig(config: TeamConfig): ValidateResult {
       errors.push(`Agent "${name}" appears more than once — duplicate agent references are not allowed`);
     }
     seen.add(name);
-  }
-
-  // Check duplicate team names
-  const seenTeams = new Set<string>();
-  for (const name of teamNames) {
-    if (seenTeams.has(name)) {
-      errors.push(`Team "${name}" appears more than once — duplicate team names are not allowed`);
-    }
-    seenTeams.add(name);
   }
 
   if (errors.length > 0) return { ok: false, errors };

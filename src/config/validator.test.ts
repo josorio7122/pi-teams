@@ -23,7 +23,6 @@ describe("validateTeamConfig", () => {
         orchestrator: { agent: "orchestrator" },
         members: [
           {
-            team: "Engineering",
             lead: "eng-lead",
             members: [{ agent: "frontend-dev" }, { agent: "backend-dev" }],
           },
@@ -39,7 +38,6 @@ describe("validateTeamConfig", () => {
         members: [
           { agent: "architect" },
           {
-            team: "Engineering",
             lead: "eng-lead",
             members: [{ agent: "builder" }],
           },
@@ -54,11 +52,9 @@ describe("validateTeamConfig", () => {
         orchestrator: { agent: "orchestrator" },
         members: [
           {
-            team: "Engineering",
             lead: "eng-lead",
             members: [
               {
-                team: "Frontend",
                 lead: "fe-lead",
                 members: [{ agent: "react-dev" }],
               },
@@ -93,7 +89,6 @@ describe("validateTeamConfig", () => {
         members: [
           { agent: "builder" },
           {
-            team: "Engineering",
             lead: "eng-lead",
             members: [{ agent: "builder" }],
           },
@@ -110,7 +105,6 @@ describe("validateTeamConfig", () => {
         orchestrator: { agent: "orchestrator" },
         members: [
           {
-            team: "Engineering",
             lead: "builder",
             members: [{ agent: "builder" }],
           },
@@ -122,22 +116,6 @@ describe("validateTeamConfig", () => {
     });
   });
 
-  describe("duplicate team names", () => {
-    it("rejects duplicate team names at same level", () => {
-      const result = validateTeamConfig({
-        paths: { agents: ".pi/agents/" },
-        orchestrator: { agent: "orchestrator" },
-        members: [
-          { team: "Engineering", lead: "lead-a", members: [{ agent: "dev-a" }] },
-          { team: "Engineering", lead: "lead-b", members: [{ agent: "dev-b" }] },
-        ],
-      });
-      expect(result.ok).toBe(false);
-      if (result.ok) return;
-      expect(result.errors[0]).toContain("Engineering");
-    });
-  });
-
   describe("collects all agent names", () => {
     it("returns all unique agent names on success", () => {
       const result = validateTeamConfig({
@@ -146,7 +124,6 @@ describe("validateTeamConfig", () => {
         members: [
           { agent: "architect" },
           {
-            team: "Engineering",
             lead: "eng-lead",
             members: [{ agent: "builder" }, { agent: "reviewer" }],
           },

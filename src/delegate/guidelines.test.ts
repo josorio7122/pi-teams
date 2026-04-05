@@ -2,11 +2,11 @@ import { describe, expect, it } from "vitest";
 import { buildDelegateGuidelines } from "./guidelines.js";
 import type { DelegateTarget } from "./targets.js";
 
-function target(name: string, opts?: { leadsTeam?: string; consultWhen?: string }): DelegateTarget {
+function target(name: string, opts?: { isLead?: boolean; consultWhen?: string }): DelegateTarget {
   return {
     name,
     config: {} as DelegateTarget["config"],
-    ...(opts?.leadsTeam ? { leadsTeam: opts.leadsTeam } : {}),
+    ...(opts?.isLead ? { teamMembers: [] } : {}),
     ...(opts?.consultWhen ? { consultWhen: opts.consultWhen } : {}),
   };
 }
@@ -19,26 +19,24 @@ describe("buildDelegateGuidelines", () => {
     expect(joined).toContain("Design decisions");
   });
 
-  it("lists lead targets with team context", () => {
-    const lines = buildDelegateGuidelines([
-      target("eng-lead", { leadsTeam: "Engineering", consultWhen: "Code, APIs" }),
-    ]);
+  it("lists lead targets", () => {
+    const lines = buildDelegateGuidelines([target("eng-lead", { isLead: true, consultWhen: "Code, APIs" })]);
     const joined = lines.join("\n");
     expect(joined).toContain('"eng-lead"');
-    expect(joined).toContain("leads Engineering");
+    expect(joined).toContain("team lead");
     expect(joined).toContain("Code, APIs");
   });
 
   it("lists mixed targets", () => {
     const lines = buildDelegateGuidelines([
       target("architect", { consultWhen: "Design" }),
-      target("eng-lead", { leadsTeam: "Engineering", consultWhen: "Code" }),
-      target("val-lead", { leadsTeam: "Validation", consultWhen: "Testing" }),
+      target("eng-lead", { isLead: true, consultWhen: "Code" }),
+      target("val-lead", { isLead: true, consultWhen: "Testing" }),
     ]);
     const joined = lines.join("\n");
     expect(joined).toContain('"architect"');
-    expect(joined).toContain('"eng-lead" (leads Engineering)');
-    expect(joined).toContain('"val-lead" (leads Validation)');
+    expect(joined).toContain('"eng-lead" (team lead)');
+    expect(joined).toContain('"val-lead" (team lead)');
   });
 
   it("handles target without consultWhen", () => {

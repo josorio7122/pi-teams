@@ -41,8 +41,7 @@ For teams with leads:
 ---
 # ... paths and orchestrator as above
 members:
-  - team: Engineering
-    lead: eng-lead
+  - lead: eng-lead
     consult-when: Architecture, implementation, code
     members:
       - agent: frontend-dev

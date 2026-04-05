@@ -17,9 +17,7 @@ paths:
 orchestrator:
   agent: orchestrator
 members:
-  - team: Engineering
-    color: "#ff6e96"
-    lead: engineering-lead
+  - lead: engineering-lead
     consult-when: Architecture, implementation
     members:
       - agent: frontend-dev
@@ -34,8 +32,7 @@ orchestrator:
   agent: orchestrator
 members:
   - agent: architect
-  - team: Engineering
-    lead: engineering-lead
+  - lead: engineering-lead
     members:
       - agent: builder
   - agent: code-reviewer
@@ -48,11 +45,9 @@ paths:
 orchestrator:
   agent: orchestrator
 members:
-  - team: Engineering
-    lead: eng-lead
+  - lead: eng-lead
     members:
-      - team: Frontend
-        lead: frontend-lead
+      - lead: frontend-lead
         members:
           - agent: react-dev
       - agent: devops
@@ -77,12 +72,10 @@ describe("parseTeamFile", () => {
       expect(result.value.members).toHaveLength(1);
       const team = result.value.members[0]!;
       expect(team).toMatchObject({
-        team: "Engineering",
-        color: "#ff6e96",
         lead: "engineering-lead",
         "consult-when": "Architecture, implementation",
       });
-      if (!("team" in team)) return;
+      if (!("lead" in team)) return;
       expect(team.members).toEqual([{ agent: "frontend-dev" }, { agent: "backend-dev" }]);
     });
 
@@ -116,10 +109,10 @@ members:
       expect(result.ok).toBe(true);
       if (!result.ok) return;
       const eng = result.value.members[0]!;
-      if (!("team" in eng)) return;
+      if (!("lead" in eng)) return;
       expect(eng.members).toHaveLength(2);
       const frontend = eng.members[0]!;
-      if (!("team" in frontend)) return;
+      if (!("lead" in frontend)) return;
       expect(frontend.lead).toBe("frontend-lead");
       expect(frontend.members).toEqual([{ agent: "react-dev" }]);
     });
@@ -179,8 +172,7 @@ paths:
 orchestrator:
   agent: orchestrator
 members:
-  - team: Engineering
-    members:
+  - members:
       - agent: builder
 ---`);
       expect(result.ok).toBe(false);

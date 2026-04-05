@@ -78,14 +78,17 @@ describe("createDelegateTool", () => {
       ...baseDeps(),
       targets: [
         makeTarget("architect", { consultWhen: "Design" }),
-        makeTarget("eng-lead", { leadsTeam: "Engineering", consultWhen: "Code" }),
+        makeTarget("eng-lead", {
+          teamMembers: [{ type: "agent", config: stubConfig("eng-lead") }],
+          consultWhen: "Code",
+        }),
       ],
     });
     expect(tool.promptGuidelines).toBeDefined();
     const joined = tool.promptGuidelines!.join("\n");
     expect(joined).toContain("architect");
     expect(joined).toContain("eng-lead");
-    expect(joined).toContain("Engineering");
+    expect(joined).toContain("team lead");
   });
 
   it("executes delegation to a flat agent target", async () => {
@@ -162,7 +165,6 @@ describe("createDelegateTool", () => {
       targets: [
         makeTarget("eng-lead", {
           config: stubConfig("eng-lead", ["read", "delegate"]),
-          leadsTeam: "Engineering",
           teamMembers: [
             { type: "agent", config: stubConfig("frontend-dev"), consultWhen: "UI" },
             { type: "agent", config: stubConfig("backend-dev"), consultWhen: "APIs" },
@@ -190,7 +192,6 @@ describe("createDelegateTool", () => {
       targets: [
         makeTarget("eng-lead", {
           config: stubConfig("eng-lead", ["read", "delegate"]),
-          leadsTeam: "Engineering",
           teamMembers: [{ type: "agent", config: stubConfig("frontend-dev") }],
         }),
       ],
@@ -253,7 +254,6 @@ describe("createDelegateTool", () => {
       targets: [
         makeTarget("eng-lead", {
           config: stubConfig("eng-lead", ["read", "delegate"]),
-          leadsTeam: "Engineering",
           teamMembers: [{ type: "agent", config: stubConfig("frontend-dev") }],
         }),
       ],

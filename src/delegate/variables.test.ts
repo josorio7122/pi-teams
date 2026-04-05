@@ -2,11 +2,10 @@ import { describe, expect, it } from "vitest";
 import type { DelegateTarget } from "./targets.js";
 import { buildTargetsBlock } from "./variables.js";
 
-function target(name: string, opts?: { leadsTeam?: string; consultWhen?: string }): DelegateTarget {
+function target(name: string, opts?: { consultWhen?: string }): DelegateTarget {
   return {
     name,
     config: {} as DelegateTarget["config"],
-    ...(opts?.leadsTeam ? { leadsTeam: opts.leadsTeam } : {}),
     ...(opts?.consultWhen ? { consultWhen: opts.consultWhen } : {}),
   };
 }
@@ -19,21 +18,21 @@ describe("buildTargetsBlock", () => {
     expect(result).not.toContain("leads:");
   });
 
-  it("formats lead targets with team context", () => {
-    const result = buildTargetsBlock([target("eng-lead", { leadsTeam: "Engineering", consultWhen: "Code, APIs" })]);
+  it("formats lead targets", () => {
+    const result = buildTargetsBlock([target("eng-lead", { consultWhen: "Code, APIs" })]);
     expect(result).toContain("name: eng-lead");
-    expect(result).toContain("leads: Engineering");
     expect(result).toContain("consult-when: Code, APIs");
+    expect(result).not.toContain("leads:");
   });
 
   it("formats mixed targets", () => {
     const result = buildTargetsBlock([
       target("architect", { consultWhen: "Design" }),
-      target("eng-lead", { leadsTeam: "Engineering", consultWhen: "Code" }),
+      target("eng-lead", { consultWhen: "Code" }),
     ]);
     expect(result).toContain("name: architect");
     expect(result).toContain("name: eng-lead");
-    expect(result).toContain("leads: Engineering");
+    expect(result).not.toContain("leads:");
   });
 
   it("omits consult-when when absent", () => {

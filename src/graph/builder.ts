@@ -9,8 +9,6 @@ export type AgentNode = Readonly<{
 
 export type TeamNode = Readonly<{
   type: "team";
-  name: string;
-  color?: string | undefined;
   consultWhen?: string | undefined;
   lead: AgentNode;
   members: ReadonlyArray<GraphNode>;
@@ -48,8 +46,6 @@ function buildMembers(
 
     return {
       type: "team",
-      name: member.team,
-      ...(member.color ? { color: member.color } : {}),
       ...(member["consult-when"] ? { consultWhen: member["consult-when"] } : {}),
       lead: toAgentNode({ agents, name: member.lead }),
       members: buildMembers(member.members, agents),

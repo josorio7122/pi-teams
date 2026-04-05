@@ -33,10 +33,9 @@ function agentNode(name: string, consultWhen?: string): AgentNode {
     : { type: "agent", config: stubConfig(name) };
 }
 
-function teamNode(params: { name: string; leadName: string; members: GraphNode[]; consultWhen?: string }): TeamNode {
+function teamNode(params: { leadName: string; members: GraphNode[]; consultWhen?: string }): TeamNode {
   return {
     type: "team",
-    name: params.name,
     lead: agentNode(params.leadName),
     members: params.members,
     ...(params.consultWhen ? { consultWhen: params.consultWhen } : {}),
@@ -54,10 +53,9 @@ describe("extractTargets", () => {
     expect(targets[1]!.consultWhen).toBeUndefined();
   });
 
-  it("extracts team leads as targets with team context", () => {
+  it("extracts team leads as targets", () => {
     const members: GraphNode[] = [
       teamNode({
-        name: "Engineering",
         leadName: "eng-lead",
         members: [agentNode("frontend"), agentNode("backend")],
         consultWhen: "Code, APIs",
@@ -68,9 +66,9 @@ describe("extractTargets", () => {
     expect(targets).toHaveLength(1);
     expect(targets[0]).toMatchObject({
       name: "eng-lead",
-      leadsTeam: "Engineering",
       consultWhen: "Code, APIs",
     });
+    expect(targets[0]!.teamMembers).toBeDefined();
     expect(targets[0]!.config.frontmatter.name).toBe("eng-lead");
   });
 
@@ -78,7 +76,6 @@ describe("extractTargets", () => {
     const members: GraphNode[] = [
       agentNode("architect", "Design"),
       teamNode({
-        name: "Engineering",
         leadName: "eng-lead",
         members: [agentNode("dev")],
         consultWhen: "Implementation",
@@ -90,13 +87,13 @@ describe("extractTargets", () => {
     expect(targets).toHaveLength(3);
     expect(targets[0]!.name).toBe("architect");
     expect(targets[1]!.name).toBe("eng-lead");
-    expect(targets[1]!.leadsTeam).toBe("Engineering");
+    expect(targets[1]!.teamMembers).toBeDefined();
     expect(targets[2]!.name).toBe("reviewer");
   });
 
   it("includes teamMembers for team targets", () => {
     const devs = [agentNode("frontend"), agentNode("backend")];
-    const members: GraphNode[] = [teamNode({ name: "Engineering", leadName: "eng-lead", members: devs })];
+    const members: GraphNode[] = [teamNode({ leadName: "eng-lead", members: devs })];
     const targets = extractTargets(members);
 
     expect(targets[0]!.teamMembers).toHaveLength(2);

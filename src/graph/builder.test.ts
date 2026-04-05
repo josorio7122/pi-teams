@@ -66,8 +66,6 @@ describe("buildTeamGraph", () => {
       orchestrator: { agent: "orchestrator" },
       members: [
         {
-          team: "Engineering",
-          color: "#ff6e96",
           lead: "eng-lead",
           "consult-when": "Code stuff",
           members: [{ agent: "frontend" }, { agent: "backend" }],
@@ -81,8 +79,6 @@ describe("buildTeamGraph", () => {
     const team = graph.members[0];
     expect(team?.type).toBe("team");
     if (team?.type === "team") {
-      expect(team.name).toBe("Engineering");
-      expect(team.color).toBe("#ff6e96");
       expect(team.consultWhen).toBe("Code stuff");
       expect(team.lead.config.frontmatter.name).toBe("eng-lead");
       expect(team.members).toHaveLength(2);
@@ -93,7 +89,7 @@ describe("buildTeamGraph", () => {
     const config: TeamConfig = {
       paths: { agents: ".pi/agents/" },
       orchestrator: { agent: "orchestrator" },
-      members: [{ agent: "architect" }, { team: "Eng", lead: "eng-lead", members: [{ agent: "builder" }] }],
+      members: [{ agent: "architect" }, { lead: "eng-lead", members: [{ agent: "builder" }] }],
     };
     const agents = agentMap("orchestrator", "architect", "eng-lead", "builder");
     const graph = buildTeamGraph(config, agents);
@@ -109,11 +105,9 @@ describe("buildTeamGraph", () => {
       orchestrator: { agent: "orchestrator" },
       members: [
         {
-          team: "Eng",
           lead: "eng-lead",
           members: [
             {
-              team: "Frontend",
               lead: "fe-lead",
               members: [{ agent: "react-dev" }],
             },
@@ -172,7 +166,7 @@ describe("buildTeamGraph", () => {
     const config: TeamConfig = {
       paths: { agents: ".pi/agents/" },
       orchestrator: { agent: "orchestrator" },
-      members: [{ team: "Eng", lead: "eng-lead", members: [{ agent: "dev-a" }, { agent: "dev-b" }] }],
+      members: [{ lead: "eng-lead", members: [{ agent: "dev-a" }, { agent: "dev-b" }] }],
     };
     const agents = agentMap("orchestrator", "eng-lead", "dev-a", "dev-b");
     const graph = buildTeamGraph(config, agents);

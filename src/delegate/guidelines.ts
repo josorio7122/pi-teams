@@ -2,7 +2,7 @@ import type { DelegateTarget } from "./targets.js";
 
 export function buildDelegateGuidelines(targets: ReadonlyArray<DelegateTarget>) {
   const entries = targets.map((t) => {
-    const label = t.leadsTeam ? `"${t.name}" (leads ${t.leadsTeam})` : `"${t.name}"`;
+    const label = t.teamMembers ? `"${t.name}" (team lead)` : `"${t.name}"`;
     const hint = t.consultWhen ? ` — ${t.consultWhen}` : "";
     return `  • ${label}${hint}`;
   });

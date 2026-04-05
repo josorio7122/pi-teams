@@ -5,7 +5,6 @@ export type DelegateTarget = Readonly<{
   name: string;
   config: AgentConfig;
   consultWhen?: string | undefined;
-  leadsTeam?: string | undefined;
   teamMembers?: ReadonlyArray<GraphNode> | undefined;
 }>;
 
@@ -22,7 +21,6 @@ export function extractTargets(members: ReadonlyArray<GraphNode>): ReadonlyArray
     return {
       name: node.lead.config.frontmatter.name,
       config: node.lead.config,
-      leadsTeam: node.name,
       teamMembers: node.members,
       ...(node.consultWhen ? { consultWhen: node.consultWhen } : {}),
     };

@@ -89,7 +89,7 @@ export default function (pi: ExtensionAPI) {
       pi.setActiveTools(teamGraph.orchestrator.config.frontmatter.tools ?? []);
 
       const agentCount = validated.agentNames.length;
-      const teamCount = orchestratorTargets.filter((t) => t.leadsTeam).length;
+      const teamCount = orchestratorTargets.filter((t) => t.teamMembers).length;
       ctx.ui.notify(`[pi-teams] ${agentCount} agents, ${teamCount} teams loaded`, "info");
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);

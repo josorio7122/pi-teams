@@ -63,10 +63,9 @@ export function createDelegateTool(params: CreateDelegateToolParams): ToolDefini
       });
 
       // Build extraVariables for the target
-      const extraVariables: Readonly<Record<string, string>> =
-        match.leadsTeam && match.teamMembers
-          ? { TEAM_MEMBERS_BLOCK: buildTargetsBlock(extractTargets(match.teamMembers)) }
-          : {};
+      const extraVariables: Readonly<Record<string, string>> = match.teamMembers
+        ? { TEAM_MEMBERS_BLOCK: buildTargetsBlock(extractTargets(match.teamMembers)) }
+        : {};
 
       // Build customTools if the target has delegate in its tools (it's a lead)
       const targetHasDelegate = match.config.frontmatter.tools?.includes("delegate") ?? false;

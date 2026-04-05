@@ -8,8 +8,6 @@ const AgentMemberSchema = z.object({
 
 type TeamMember = z.infer<typeof AgentMemberSchema> | TeamNode;
 type TeamNode = {
-  team: string;
-  color?: string | undefined;
   lead: string;
   "consult-when"?: string | undefined;
   members: readonly TeamMember[];
@@ -18,8 +16,6 @@ type TeamNode = {
 const TeamMemberSchema: z.ZodType<TeamMember> = z.union([
   AgentMemberSchema,
   z.object({
-    team: z.string().min(1),
-    color: z.string().optional(),
     lead: z.string().min(1),
     "consult-when": z.string().min(1).optional(),
     members: z.lazy(() => z.array(TeamMemberSchema).min(1)),
