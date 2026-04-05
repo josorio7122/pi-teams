@@ -95,14 +95,22 @@ export function createDelegateTool(params: CreateDelegateToolParams): ToolDefini
         const lastEvent = all[all.length - 1];
         if (lastEvent?.type === "delegation") {
           const status = footerState.get(lastEvent.to);
-          const phase = status.status === "running" && status.metrics ? "working" : "initializing";
+          const hasActivity = status.status === "running" && status.metrics && status.metrics.turns > 0;
+          const phase = hasActivity ? "working" : "initializing";
           const dots = ".".repeat((Math.floor(Date.now() / 500) % 3) + 1);
           events = [...events, { type: "response", agent: lastEvent.to, output: `${phase}${dots}` }];
         }
       } else {
-        // Final render: drop orphaned delegations (no matching response, e.g. abort)
-        const responded = new Set(events.filter((e) => e.type === "response").map((e) => e.agent));
-        events = events.filter((e) => e.type !== "delegation" || responded.has(e.to));
+        // Final render: drop orphaned delegations and empty responses (e.g. abort)
+        const responses = events.filter(
+          (e): e is ConversationEvent & { type: "response" } => e.type === "response" && e.output.length > 0,
+        );
+        const responded = new Set(responses.map((e) => e.agent));
+        events = events.filter((e) => {
+          if (e.type === "delegation") return responded.has(e.to);
+          if (e.type === "response") return e.output.length > 0;
+          return true;
+        });
       }
 
       return renderConversation({ events, agents: params.agents, theme });
