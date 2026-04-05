@@ -110,6 +110,9 @@ export default function (pi: ExtensionAPI) {
       // Restrict tools to only what the orchestrator is configured for
       pi.setActiveTools(teamGraph.orchestrator.config.frontmatter.tools ?? []);
 
+      // Apply pi-teams theme (transparent tool backgrounds)
+      ctx.ui.setTheme("pi-teams-dark");
+
       const agentCount = validated.agentNames.length;
       const teamCount = orchestratorTargets.filter((t) => t.teamMembers).length;
       ctx.ui.notify(`[pi-teams] ${agentCount} agents, ${teamCount} teams loaded`, "info");
