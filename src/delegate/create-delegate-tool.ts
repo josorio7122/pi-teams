@@ -83,11 +83,22 @@ export function createDelegateTool(params: CreateDelegateToolParams): ToolDefini
     },
 
     // biome-ignore lint/complexity/useMaxParams: implements Pi's ToolDefinition.renderResult (4 positional params)
-    renderResult(result, _options, theme) {
+    renderResult(result, options, theme) {
       // Skip first event (delegation) — renderCall already shows it.
-      // Show only nested delegations + all responses.
       const all = (result.details as { events?: ReadonlyArray<ConversationEvent> })?.events ?? [];
-      const events = all.slice(1);
+      const events = [...all.slice(1)];
+
+      // When streaming, show a pending box for the agent that's currently working
+      if (options.isPartial) {
+        const lastEvent = all[all.length - 1];
+        if (lastEvent?.type === "delegation") {
+          const status = footerState.get(lastEvent.to);
+          const phase = status.status === "running" && status.metrics ? "working" : "initializing";
+          const dots = ".".repeat((Math.floor(Date.now() / 500) % 3) + 1);
+          events.push({ type: "response", agent: lastEvent.to, output: `${phase}${dots}` });
+        }
+      }
+
       return renderConversation({ events, agents: params.agents, theme });
     },
 
