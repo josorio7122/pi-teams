@@ -13,9 +13,8 @@ type RunAgentFn = (params: RunAgentParams) => Promise<RunAgentResult>;
 type CreateDelegateToolParams = Readonly<{
   callerName: string;
   targets: ReadonlyArray<DelegateTarget>;
-  conversationLogPath: string;
+  session: Readonly<{ conversationLogPath: string; sessionDir: string }>;
   cwd: string;
-  sessionDir: string;
   modelRegistry: RunAgentParams["modelRegistry"];
   runAgentFn: RunAgentFn;
   sharedContext: NonNullable<RunAgentParams["sharedContext"]>;
@@ -53,8 +52,8 @@ function buildRunParams(params: {
     task,
     caller: tp.callerName,
     cwd: tp.cwd,
-    sessionDir: tp.sessionDir,
-    conversationLogPath: tp.conversationLogPath,
+    sessionDir: tp.session.sessionDir,
+    conversationLogPath: tp.session.conversationLogPath,
     modelRegistry: tp.modelRegistry,
     ...(signal ? { signal } : {}),
     ...(Object.keys(extraVariables).length > 0 ? { extraVariables } : {}),

@@ -155,9 +155,8 @@ describe("e2e: delegation chain with real LLM", () => {
     const delegateTool = createDelegateTool({
       callerName: "orchestrator",
       targets,
-      conversationLogPath: project.conversationLogPath,
+      session: { conversationLogPath: project.conversationLogPath, sessionDir: project.sessionDir },
       cwd: project.dir,
-      sessionDir: project.sessionDir,
       modelRegistry,
       runAgentFn: runAgent,
       sharedContext: [],

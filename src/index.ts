@@ -1,4 +1,3 @@
-import { randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
@@ -28,8 +27,9 @@ export default function (pi: ExtensionAPI) {
   // so reads of these closure variables in before_agent_start are always after writes.
   let teamGraph: TeamGraph | undefined;
   let orchestratorTargets: ReadonlyArray<DelegateTarget> = [];
-  let conversationLogPath: string | undefined;
-  let sessionDir: string | undefined;
+  // Mutable session ref — lazily initialized on first user message.
+  // The delegate tool closure reads from this object at execution time.
+  const sessionRef = { conversationLogPath: "", sessionDir: "" };
   let sharedContextFiles: ReadonlyArray<ContextFile> = [];
 
   pi.on("session_start", async (_event, ctx) => {
@@ -72,12 +72,6 @@ export default function (pi: ExtensionAPI) {
       teamGraph = buildTeamGraph(parsed.value, resolved.agents);
       orchestratorTargets = extractTargets(teamGraph.members);
 
-      // Session setup
-      const sid = randomUUID();
-      sessionDir = join(ctx.cwd, ".pi", "sessions", sid);
-      conversationLogPath = join(sessionDir, "conversation.jsonl");
-      await ensureLogExists(conversationLogPath);
-
       // Discover shared context files (AGENTS.md, CLAUDE.md)
       sharedContextFiles = await discoverContextFiles({ cwd: ctx.cwd });
 
@@ -89,9 +83,8 @@ export default function (pi: ExtensionAPI) {
       const delegateTool = createDelegateTool({
         callerName: teamGraph.orchestrator.config.frontmatter.name,
         targets: orchestratorTargets,
-        conversationLogPath,
+        session: sessionRef,
         cwd: ctx.cwd,
-        sessionDir,
         modelRegistry: ctx.modelRegistry,
         runAgentFn: runAgent,
         sharedContext: sharedContextFiles,
@@ -130,7 +123,15 @@ export default function (pi: ExtensionAPI) {
   });
 
   pi.on("before_agent_start", async (event, ctx) => {
-    if (!teamGraph || !sessionDir || !conversationLogPath) return;
+    if (!teamGraph) return;
+
+    // Lazy session setup — only create on first user message (avoids empty dirs on restart)
+    if (!sessionRef.conversationLogPath) {
+      const sid = ctx.sessionManager.getSessionId();
+      sessionRef.sessionDir = join(ctx.cwd, ".pi", "sessions", sid);
+      sessionRef.conversationLogPath = join(sessionRef.sessionDir, "conversation.jsonl");
+      await ensureLogExists(sessionRef.conversationLogPath);
+    }
 
     const orch = teamGraph.orchestrator.config;
     const fm = orch.frontmatter;
@@ -138,7 +139,7 @@ export default function (pi: ExtensionAPI) {
     // Read orchestrator's skills and conversation log — parallel I/O
     // Knowledge files are NOT pre-loaded; agent reads them via read-knowledge tool
     const [conversationLog, ...skillResults] = await Promise.all([
-      readFileSafe(conversationLogPath),
+      readFileSafe(sessionRef.conversationLogPath),
       ...fm.skills.map((s) => readFileSafe(join(ctx.cwd, s.path))),
     ]);
 
@@ -151,7 +152,7 @@ export default function (pi: ExtensionAPI) {
     // Assemble orchestrator system prompt with fresh content
     const systemPrompt = assembleSystemPrompt({
       agentConfig: orch,
-      sessionDir,
+      sessionDir: sessionRef.sessionDir,
       conversationLogContent: conversationLog,
       skillContents,
       extraVariables: { TEAMS_BLOCK: buildTargetsBlock(orchestratorTargets) },
@@ -159,7 +160,7 @@ export default function (pi: ExtensionAPI) {
     });
 
     // Log user message to conversation log
-    await appendToLog(conversationLogPath, {
+    await appendToLog(sessionRef.conversationLogPath, {
       ts: new Date().toISOString(),
       from: "user",
       to: teamGraph.orchestrator.config.frontmatter.name,
@@ -170,7 +171,7 @@ export default function (pi: ExtensionAPI) {
   });
 
   pi.on("agent_end", async (event) => {
-    if (!conversationLogPath || !teamGraph) return;
+    if (!sessionRef.conversationLogPath || !teamGraph) return;
 
     // Extract orchestrator's text response from the last assistant message
     for (let i = event.messages.length - 1; i >= 0; i--) {
@@ -182,7 +183,7 @@ export default function (pi: ExtensionAPI) {
           .map((p) => p.text)
           .join("");
         if (text.trim()) {
-          await appendToLog(conversationLogPath, {
+          await appendToLog(sessionRef.conversationLogPath, {
             ts: new Date().toISOString(),
             from: teamGraph.orchestrator.config.frontmatter.name,
             to: "user",

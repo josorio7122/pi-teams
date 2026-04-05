@@ -54,9 +54,8 @@ describe("createDelegateTool", () => {
   function baseDeps() {
     return {
       callerName: "orchestrator",
-      conversationLogPath,
       cwd: tmpDir,
-      sessionDir: tmpDir,
+      session: { conversationLogPath, sessionDir: tmpDir },
       modelRegistry: {} as never,
       runAgentFn: mockRunAgent,
       sharedContext: [] as Array<{ path: string; content: string }>,
