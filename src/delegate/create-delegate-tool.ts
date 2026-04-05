@@ -1,7 +1,6 @@
 import type { ToolDefinition } from "@mariozechner/pi-coding-agent";
 import { type Static, Type } from "@sinclair/typebox";
 import type { AgentConfig, RunAgentParams, RunAgentResult } from "pi-agents";
-import { appendToLog } from "pi-agents";
 import { renderConversation } from "../tui/conversation.js";
 import type { ConversationEvent, FooterState } from "../tui/state.js";
 import { buildDelegateGuidelines } from "./guidelines.js";
@@ -69,7 +68,7 @@ function buildRunParams(params: {
 }
 
 export function createDelegateTool(params: CreateDelegateToolParams): ToolDefinition<typeof DelegateParams> {
-  const { callerName, targets, conversationLogPath, runAgentFn, footerState } = params;
+  const { callerName, targets, runAgentFn, footerState } = params;
 
   return {
     name: "delegate",
@@ -142,14 +141,6 @@ export function createDelegateTool(params: CreateDelegateToolParams): ToolDefini
 
       footerState.addEvent({ type: "delegation", from: callerName, to: toolParams.target, task: toolParams.task });
       footerState.setRunning(toolParams.target);
-
-      await appendToLog(conversationLogPath, {
-        ts: new Date().toISOString(),
-        from: callerName,
-        to: toolParams.target,
-        message: toolParams.task,
-        type: "delegation",
-      });
 
       const runParams = buildRunParams({ match, task: toolParams.task, signal, toolParams: params, emitPartial });
 

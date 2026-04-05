@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { AgentConfig } from "pi-agents";
@@ -119,31 +119,6 @@ describe("createDelegateTool", () => {
     expect(callArgs.task).toBe("Build feature X");
     expect(callArgs.caller).toBe("orchestrator");
     expect(result.content[0]).toMatchObject({ type: "text", text: "Built it!" });
-  });
-
-  it("writes delegation entry to conversation log before calling runAgent", async () => {
-    mockRunAgent.mockResolvedValue({
-      output: "Done",
-      metrics: { turns: 1, inputTokens: 100, outputTokens: 50, cost: 0.01, toolCalls: [] },
-    });
-
-    const tool = createDelegateTool({
-      ...baseDeps(),
-      targets: [makeTarget("builder")],
-    });
-
-    await tool.execute("call-1", { target: "builder", task: "Build it" }, undefined, undefined, {} as never);
-
-    const logContent = await readFile(conversationLogPath, "utf-8");
-    const entries = logContent
-      .trim()
-      .split("\n")
-      .map((l) => JSON.parse(l));
-    const delegation = entries.find((e: Record<string, string>) => e.type === "delegation");
-    expect(delegation).toBeDefined();
-    expect(delegation.from).toBe("orchestrator");
-    expect(delegation.to).toBe("builder");
-    expect(delegation.message).toBe("Build it");
   });
 
   it("rejects unknown target", async () => {
