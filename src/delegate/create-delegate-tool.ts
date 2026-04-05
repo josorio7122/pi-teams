@@ -36,6 +36,7 @@ function buildRunParams(params: {
   readonly task: string;
   readonly signal: AbortSignal | undefined;
   readonly toolParams: CreateDelegateToolParams;
+  readonly emitPartial?: () => void;
 }): RunAgentParams {
   const { match, task, signal, toolParams: tp } = params;
   const extraVariables: Readonly<Record<string, string>> = match.teamMembers
@@ -62,6 +63,7 @@ function buildRunParams(params: {
     ...(tp.sharedContext.length > 0 ? { sharedContext: tp.sharedContext } : {}),
     onUpdate: (metrics) => {
       tp.footerState.updateMetrics({ name: match.config.frontmatter.name, metrics });
+      params.emitPartial?.();
     },
   };
 }
@@ -119,17 +121,19 @@ export function createDelegateTool(params: CreateDelegateToolParams): ToolDefini
 
       // Record delegation event for conversation view
       const scopeStart = footerState.getEvents().length;
-      footerState.addEvent({ type: "delegation", from: callerName, to: toolParams.target, task: toolParams.task });
-      footerState.setRunning(toolParams.target);
 
-      // Subscribe to footerState changes so nested events trigger re-renders
-      const unsubscribe = footerState.subscribe(() => {
+      // Subscribe BEFORE adding events so the first event triggers onUpdate
+      const emitPartial = () => {
         const scopeEvents = footerState.getEvents().slice(scopeStart);
         onUpdate?.({
           content: [{ type: "text", text: "" }],
           details: { events: scopeEvents },
         });
-      });
+      };
+      const unsubscribe = footerState.subscribe(emitPartial);
+
+      footerState.addEvent({ type: "delegation", from: callerName, to: toolParams.target, task: toolParams.task });
+      footerState.setRunning(toolParams.target);
 
       await appendToLog(conversationLogPath, {
         ts: new Date().toISOString(),
@@ -139,7 +143,7 @@ export function createDelegateTool(params: CreateDelegateToolParams): ToolDefini
         type: "delegation",
       });
 
-      const runParams = buildRunParams({ match, task: toolParams.task, signal, toolParams: params });
+      const runParams = buildRunParams({ match, task: toolParams.task, signal, toolParams: params, emitPartial });
 
       let result: Awaited<ReturnType<RunAgentFn>>;
       try {
