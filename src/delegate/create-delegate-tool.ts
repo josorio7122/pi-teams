@@ -1,8 +1,9 @@
 import type { ToolDefinition } from "@mariozechner/pi-coding-agent";
 import { type Static, Type } from "@sinclair/typebox";
-import type { RunAgentParams, RunAgentResult } from "pi-agents";
+import type { AgentConfig, RunAgentParams, RunAgentResult } from "pi-agents";
 import { appendToLog } from "pi-agents";
-import type { FooterState } from "../tui/state.js";
+import { renderConversation } from "../tui/conversation.js";
+import type { ConversationEvent, FooterState } from "../tui/state.js";
 import { buildDelegateGuidelines } from "./guidelines.js";
 import type { DelegateTarget } from "./targets.js";
 import { extractTargets } from "./targets.js";
@@ -20,6 +21,7 @@ type CreateDelegateToolParams = Readonly<{
   runAgentFn: RunAgentFn;
   sharedContext: NonNullable<RunAgentParams["sharedContext"]>;
   footerState: FooterState;
+  agents: ReadonlyMap<string, AgentConfig>;
 }>;
 
 const DelegateParams = Type.Object({
@@ -72,6 +74,17 @@ export function createDelegateTool(params: CreateDelegateToolParams): ToolDefini
     promptGuidelines: [...buildDelegateGuidelines(targets)],
     parameters: DelegateParams,
 
+    renderCall(args, theme) {
+      const events: ConversationEvent[] = [{ type: "delegation", from: callerName, to: args.target, task: args.task }];
+      return renderConversation({ events, agents: params.agents, theme });
+    },
+
+    // biome-ignore lint/complexity/useMaxParams: implements Pi's ToolDefinition.renderResult (4 positional params)
+    renderResult(result, _options, theme) {
+      const events = (result.details as { events?: ReadonlyArray<ConversationEvent> })?.events ?? [];
+      return renderConversation({ events, agents: params.agents, theme });
+    },
+
     // biome-ignore lint/complexity/useMaxParams: implements Pi's ToolDefinition.execute (5 positional params)
     async execute(_toolCallId, toolParams: DelegateInput, signal: AbortSignal | undefined, _onUpdate, _ctx) {
       // Bail immediately if already cancelled
@@ -87,6 +100,9 @@ export function createDelegateTool(params: CreateDelegateToolParams): ToolDefini
       // NOTE: appendFile writes are atomic for single lines under the OS page size,
       // so concurrent delegations will not corrupt individual JSON lines. However,
       // parallel delegation may interleave entry order in the log file.
+      // Record delegation event for conversation view
+      const scopeStart = footerState.getEvents().length;
+      footerState.addEvent({ type: "delegation", from: callerName, to: toolParams.target, task: toolParams.task });
       footerState.setRunning(toolParams.target);
 
       await appendToLog(conversationLogPath, {
@@ -114,9 +130,13 @@ export function createDelegateTool(params: CreateDelegateToolParams): ToolDefini
         footerState.setDone({ name: toolParams.target, metrics: result.metrics });
       }
 
+      // Record response event for conversation view
+      footerState.addEvent({ type: "response", agent: toolParams.target, output: result.output });
+      const scopeEvents = footerState.getEvents().slice(scopeStart);
+
       return {
         content: [{ type: "text", text: result.output }],
-        details: { metrics: result.metrics, error: result.error },
+        details: { metrics: result.metrics, error: result.error, events: scopeEvents },
       };
     },
   };

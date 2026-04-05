@@ -162,6 +162,7 @@ describe("e2e: delegation chain with real LLM", () => {
       runAgentFn: runAgent,
       sharedContext: [],
       footerState: createFooterState({ onUpdate: () => {} }),
+      agents: resolved.agents,
     });
 
     const guidelines = buildDelegateGuidelines(targets);

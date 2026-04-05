@@ -89,6 +89,7 @@ export default function (pi: ExtensionAPI) {
         runAgentFn: runAgent,
         sharedContext: sharedContextFiles,
         footerState,
+        agents: resolved.agents,
       });
       pi.registerTool(delegateTool);
 

@@ -63,4 +63,20 @@ describe("createFooterState", () => {
     state.setRunning("c");
     expect(state.allMetrics()).toHaveLength(2);
   });
+
+  it("tracks conversation events", () => {
+    const state = createFooterState({ onUpdate: () => {} });
+    state.addEvent({ type: "delegation", from: "orch", to: "lead", task: "do it" });
+    state.addEvent({ type: "response", agent: "lead", output: "done" });
+    expect(state.getEvents()).toHaveLength(2);
+    expect(state.getEvents()[0]!.type).toBe("delegation");
+    expect(state.getEvents()[1]!.type).toBe("response");
+  });
+
+  it("calls onUpdate when event is added", () => {
+    const onUpdate = vi.fn();
+    const state = createFooterState({ onUpdate });
+    state.addEvent({ type: "response", agent: "a", output: "x" });
+    expect(onUpdate).toHaveBeenCalledTimes(1);
+  });
 });

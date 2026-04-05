@@ -14,12 +14,19 @@ export type FooterState = Readonly<{
   setError: (params: { readonly name: string; readonly error: string; readonly metrics?: AgentMetrics }) => void;
   hasRunning: () => boolean;
   allMetrics: () => ReadonlyArray<AgentMetrics>;
+  addEvent: (event: ConversationEvent) => void;
+  getEvents: () => ReadonlyArray<ConversationEvent>;
 }>;
+
+export type ConversationEvent = Readonly<
+  { type: "delegation"; from: string; to: string; task: string } | { type: "response"; agent: string; output: string }
+>;
 
 const IDLE: AgentStatus = { status: "idle" };
 
 export function createFooterState(params: { readonly onUpdate: () => void }): FooterState {
   const agents = new Map<string, AgentStatus>();
+  const events: ConversationEvent[] = [];
 
   return {
     get: (name) => agents.get(name) ?? IDLE,
@@ -43,5 +50,10 @@ export function createFooterState(params: { readonly onUpdate: () => void }): Fo
       }
       return result;
     },
+    addEvent: (event) => {
+      events.push(event);
+      params.onUpdate();
+    },
+    getEvents: () => events,
   };
 }

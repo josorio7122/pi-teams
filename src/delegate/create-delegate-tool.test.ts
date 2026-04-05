@@ -61,6 +61,7 @@ describe("createDelegateTool", () => {
       runAgentFn: mockRunAgent,
       sharedContext: [] as Array<{ path: string; content: string }>,
       footerState: createFooterState({ onUpdate: () => {} }),
+      agents: new Map(),
     };
   }
 
