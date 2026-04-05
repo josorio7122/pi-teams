@@ -50,5 +50,9 @@
   "bundledDependencies": [
     "pi-agents",
     "zod"
+  ],
+  "bundleDependencies": [
+    "pi-agents",
+    "zod"
   ]
 }
