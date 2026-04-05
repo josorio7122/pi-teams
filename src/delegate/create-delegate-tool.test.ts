@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { AgentConfig } from "pi-agents";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { createFooterState } from "../tui/state.js";
 import { createDelegateTool } from "./create-delegate-tool.js";
 import type { DelegateTarget } from "./targets.js";
 
@@ -59,6 +60,7 @@ describe("createDelegateTool", () => {
       modelRegistry: {} as never,
       runAgentFn: mockRunAgent,
       sharedContext: [] as Array<{ path: string; content: string }>,
+      footerState: createFooterState({ onUpdate: () => {} }),
     };
   }
 
@@ -291,5 +293,19 @@ describe("createDelegateTool", () => {
 
     const callArgs = mockRunAgent.mock.calls[0]![0];
     expect(callArgs.signal).toBe(controller.signal);
+  });
+
+  it("sets footer state to error when runAgentFn throws", async () => {
+    mockRunAgent.mockRejectedValue(new Error("Network failure"));
+    const footerState = createFooterState({ onUpdate: () => {} });
+    const tool = createDelegateTool({ ...baseDeps(), targets: [makeTarget("builder")], footerState });
+
+    await expect(
+      tool.execute("call-1", { target: "builder", task: "Build it" }, undefined, undefined, {} as never),
+    ).rejects.toThrow("Network failure");
+
+    const status = footerState.get("builder");
+    expect(status.status).toBe("error");
+    if (status.status === "error") expect(status.error).toBe("Network failure");
   });
 });

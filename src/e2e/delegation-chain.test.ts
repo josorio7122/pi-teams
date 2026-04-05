@@ -12,6 +12,7 @@ import { extractTargets } from "../delegate/targets.js";
 import { buildTargetsBlock } from "../delegate/variables.js";
 import { buildTeamGraph } from "../graph/builder.js";
 import { resolveAgents } from "../graph/resolver.js";
+import { createFooterState } from "../tui/state.js";
 
 function agentMd(p: { readonly name: string; readonly role: string; readonly tools: string; readonly body: string }) {
   return `---
@@ -160,6 +161,7 @@ describe("e2e: delegation chain with real LLM", () => {
       modelRegistry,
       runAgentFn: runAgent,
       sharedContext: [],
+      footerState: createFooterState({ onUpdate: () => {} }),
     });
 
     const guidelines = buildDelegateGuidelines(targets);

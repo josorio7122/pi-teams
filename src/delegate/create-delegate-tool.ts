@@ -2,6 +2,7 @@ import type { ToolDefinition } from "@mariozechner/pi-coding-agent";
 import { type Static, Type } from "@sinclair/typebox";
 import type { RunAgentParams, RunAgentResult } from "pi-agents";
 import { appendToLog } from "pi-agents";
+import type { FooterState } from "../tui/state.js";
 import { buildDelegateGuidelines } from "./guidelines.js";
 import type { DelegateTarget } from "./targets.js";
 import { extractTargets } from "./targets.js";
@@ -18,6 +19,7 @@ type CreateDelegateToolParams = Readonly<{
   modelRegistry: RunAgentParams["modelRegistry"];
   runAgentFn: RunAgentFn;
   sharedContext: NonNullable<RunAgentParams["sharedContext"]>;
+  footerState: FooterState;
 }>;
 
 const DelegateParams = Type.Object({
@@ -27,9 +29,40 @@ const DelegateParams = Type.Object({
 
 type DelegateInput = Static<typeof DelegateParams>;
 
+function buildRunParams(params: {
+  readonly match: DelegateTarget;
+  readonly task: string;
+  readonly signal: AbortSignal | undefined;
+  readonly toolParams: CreateDelegateToolParams;
+}): RunAgentParams {
+  const { match, task, signal, toolParams: tp } = params;
+  const extraVariables: Readonly<Record<string, string>> = match.teamMembers
+    ? { TEAM_MEMBERS_BLOCK: buildTargetsBlock(extractTargets(match.teamMembers)) }
+    : {};
+
+  const targetHasDelegate = match.config.frontmatter.tools?.includes("delegate") ?? false;
+  const customTools =
+    targetHasDelegate && match.teamMembers
+      ? [createDelegateTool({ ...tp, callerName: match.name, targets: extractTargets(match.teamMembers) })]
+      : undefined;
+
+  return {
+    agentConfig: match.config,
+    task,
+    caller: tp.callerName,
+    cwd: tp.cwd,
+    sessionDir: tp.sessionDir,
+    conversationLogPath: tp.conversationLogPath,
+    modelRegistry: tp.modelRegistry,
+    ...(signal ? { signal } : {}),
+    ...(Object.keys(extraVariables).length > 0 ? { extraVariables } : {}),
+    ...(customTools ? { customTools } : {}),
+    ...(tp.sharedContext.length > 0 ? { sharedContext: tp.sharedContext } : {}),
+  };
+}
+
 export function createDelegateTool(params: CreateDelegateToolParams): ToolDefinition<typeof DelegateParams> {
-  const { callerName, targets, conversationLogPath, cwd, sessionDir, modelRegistry, runAgentFn, sharedContext } =
-    params;
+  const { callerName, targets, conversationLogPath, runAgentFn, footerState } = params;
 
   return {
     name: "delegate",
@@ -54,6 +87,8 @@ export function createDelegateTool(params: CreateDelegateToolParams): ToolDefini
       // NOTE: appendFile writes are atomic for single lines under the OS page size,
       // so concurrent delegations will not corrupt individual JSON lines. However,
       // parallel delegation may interleave entry order in the log file.
+      footerState.setRunning(toolParams.target);
+
       await appendToLog(conversationLogPath, {
         ts: new Date().toISOString(),
         from: callerName,
@@ -62,44 +97,22 @@ export function createDelegateTool(params: CreateDelegateToolParams): ToolDefini
         type: "delegation",
       });
 
-      // Build extraVariables for the target
-      const extraVariables: Readonly<Record<string, string>> = match.teamMembers
-        ? { TEAM_MEMBERS_BLOCK: buildTargetsBlock(extractTargets(match.teamMembers)) }
-        : {};
+      const runParams = buildRunParams({ match, task: toolParams.task, signal, toolParams: params });
 
-      // Build customTools if the target has delegate in its tools (it's a lead)
-      const targetHasDelegate = match.config.frontmatter.tools?.includes("delegate") ?? false;
-      const customTools =
-        targetHasDelegate && match.teamMembers
-          ? [
-              createDelegateTool({
-                callerName: match.name,
-                targets: extractTargets(match.teamMembers),
-                conversationLogPath,
-                cwd,
-                sessionDir,
-                modelRegistry,
-                runAgentFn,
-                sharedContext,
-              }),
-            ]
-          : undefined;
+      let result: Awaited<ReturnType<RunAgentFn>>;
+      try {
+        result = await runAgentFn(runParams);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        footerState.setError({ name: toolParams.target, error: message });
+        throw err;
+      }
 
-      const runParams: RunAgentParams = {
-        agentConfig: match.config,
-        task: toolParams.task,
-        caller: callerName,
-        cwd,
-        sessionDir,
-        conversationLogPath,
-        modelRegistry,
-        ...(signal ? { signal } : {}),
-        ...(Object.keys(extraVariables).length > 0 ? { extraVariables } : {}),
-        ...(customTools ? { customTools } : {}),
-        ...(sharedContext.length > 0 ? { sharedContext } : {}),
-      };
-
-      const result = await runAgentFn(runParams);
+      if (result.error) {
+        footerState.setError({ name: toolParams.target, error: result.error, metrics: result.metrics });
+      } else {
+        footerState.setDone({ name: toolParams.target, metrics: result.metrics });
+      }
 
       return {
         content: [{ type: "text", text: result.output }],

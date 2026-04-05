@@ -13,6 +13,8 @@ import { buildTargetsBlock } from "./delegate/variables.js";
 import type { TeamGraph } from "./graph/builder.js";
 import { buildTeamGraph } from "./graph/builder.js";
 import { resolveAgents } from "./graph/resolver.js";
+import { renderFooter } from "./tui/render.js";
+import { createFooterState } from "./tui/state.js";
 
 export default function (pi: ExtensionAPI) {
   // NOTE: pi guarantees session_start completes before before_agent_start fires,
@@ -72,6 +74,10 @@ export default function (pi: ExtensionAPI) {
       // Discover shared context files (AGENTS.md, CLAUDE.md)
       sharedContextFiles = await discoverContextFiles({ cwd: ctx.cwd });
 
+      // Footer state — wired to tui.requestRender after setFooter runs
+      let requestRender = () => {};
+      const footerState = createFooterState({ onUpdate: () => requestRender() });
+
       // Register delegate tool for the Orchestrator
       const delegateTool = createDelegateTool({
         callerName: teamGraph.orchestrator.config.frontmatter.name,
@@ -82,8 +88,23 @@ export default function (pi: ExtensionAPI) {
         modelRegistry: ctx.modelRegistry,
         runAgentFn: runAgent,
         sharedContext: sharedContextFiles,
+        footerState,
       });
       pi.registerTool(delegateTool);
+
+      // Persistent footer showing the team tree with live status
+      const graph = teamGraph;
+      ctx.ui.setFooter((tui, theme) => {
+        requestRender = () => tui.requestRender();
+        const interval = setInterval(() => {
+          if (footerState.hasRunning()) tui.requestRender();
+        }, 80);
+        return {
+          render: (width) => renderFooter({ graph, state: footerState, theme, width }),
+          invalidate() {},
+          dispose: () => clearInterval(interval),
+        };
+      });
 
       // Restrict tools to only what the orchestrator is configured for
       pi.setActiveTools(teamGraph.orchestrator.config.frontmatter.tools ?? []);

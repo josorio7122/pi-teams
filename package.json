@@ -9,7 +9,9 @@
     "lint": "biome check src/",
     "lint:fix": "biome check --fix src/",
     "check": "npm run lint && npm run typecheck && npm run test",
-    "format": "biome format --write src/"
+    "format": "biome format --write src/",
+    "simulate": "tsx scripts/simulate-footer.ts",
+    "simulate:conversation": "tsx scripts/simulate-conversation.ts"
   },
   "keywords": [
     "pi-package"
