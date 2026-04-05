@@ -138,10 +138,8 @@ export default function (pi: ExtensionAPI) {
 
     // Read orchestrator's skills and conversation log — parallel I/O
     // Knowledge files are NOT pre-loaded; agent reads them via read-knowledge tool
-    const [conversationLog, ...skillResults] = await Promise.all([
-      readFileSafe(sessionRef.conversationLogPath),
-      ...fm.skills.map((s) => readFileSafe(join(ctx.cwd, s.path))),
-    ]);
+    // Read skill files — conversation log and knowledge are NOT pre-loaded (agents use tools)
+    const skillResults = await Promise.all(fm.skills.map((s) => readFileSafe(join(ctx.cwd, s.path))));
 
     const skillContents = fm.skills.map((s, i) => ({
       name: s.path.split("/").pop()?.replace(".md", "") ?? s.path,
@@ -153,7 +151,6 @@ export default function (pi: ExtensionAPI) {
     const systemPrompt = assembleSystemPrompt({
       agentConfig: orch,
       sessionDir: sessionRef.sessionDir,
-      conversationLogContent: conversationLog,
       skillContents,
       extraVariables: { TEAMS_BLOCK: buildTargetsBlock(orchestratorTargets) },
       ...(sharedContextFiles.length > 0 ? { sharedContextContents: sharedContextFiles } : {}),
