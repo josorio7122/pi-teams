@@ -28,7 +28,7 @@
     ]
   },
   "dependencies": {
-    "pi-agents": "github:josorio7122/pi-agents#refactor/knowledge-tools-not-prompt",
+    "pi-agents": "github:josorio7122/pi-agents",
     "zod": "^4.3.6"
   },
   "devDependencies": {
