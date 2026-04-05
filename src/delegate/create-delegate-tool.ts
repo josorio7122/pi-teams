@@ -81,7 +81,10 @@ export function createDelegateTool(params: CreateDelegateToolParams): ToolDefini
 
     // biome-ignore lint/complexity/useMaxParams: implements Pi's ToolDefinition.renderResult (4 positional params)
     renderResult(result, _options, theme) {
-      const events = (result.details as { events?: ReadonlyArray<ConversationEvent> })?.events ?? [];
+      // Skip first event (delegation) — renderCall already shows it.
+      // Show only nested delegations + all responses.
+      const all = (result.details as { events?: ReadonlyArray<ConversationEvent> })?.events ?? [];
+      const events = all.slice(1);
       return renderConversation({ events, agents: params.agents, theme });
     },
 
