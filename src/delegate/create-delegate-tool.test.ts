@@ -267,4 +267,29 @@ describe("createDelegateTool", () => {
     expect(callArgs.sharedContext).toHaveLength(1);
     expect(callArgs.sharedContext[0].content).toBe("shared across all");
   });
+
+  it("throws immediately when signal is already aborted", async () => {
+    mockRunAgent.mockResolvedValue({ output: "ok", metrics: {} });
+    const tool = createDelegateTool({ ...baseDeps(), targets: [makeTarget("builder")] });
+
+    const controller = new AbortController();
+    controller.abort();
+
+    await expect(
+      tool.execute("call-1", { target: "builder", task: "Build it" }, controller.signal, undefined, {} as never),
+    ).rejects.toThrow(/cancelled/);
+
+    expect(mockRunAgent).not.toHaveBeenCalled();
+  });
+
+  it("passes signal through to runAgentFn", async () => {
+    mockRunAgent.mockResolvedValue({ output: "ok", metrics: {} });
+    const tool = createDelegateTool({ ...baseDeps(), targets: [makeTarget("builder")] });
+
+    const controller = new AbortController();
+    await tool.execute("call-1", { target: "builder", task: "Build it" }, controller.signal, undefined, {} as never);
+
+    const callArgs = mockRunAgent.mock.calls[0]![0];
+    expect(callArgs.signal).toBe(controller.signal);
+  });
 });

@@ -40,7 +40,10 @@ export function createDelegateTool(params: CreateDelegateToolParams): ToolDefini
     parameters: DelegateParams,
 
     // biome-ignore lint/complexity/useMaxParams: implements Pi's ToolDefinition.execute (5 positional params)
-    async execute(_toolCallId, toolParams: DelegateInput, signal, _onUpdate, _ctx) {
+    async execute(_toolCallId, toolParams: DelegateInput, signal: AbortSignal | undefined, _onUpdate, _ctx) {
+      // Bail immediately if already cancelled
+      if (signal?.aborted) throw new Error("Delegation cancelled");
+
       const match = targets.find((t) => t.name === toolParams.target);
       if (!match) {
         const available = targets.map((t) => `"${t.name}"`).join(", ");
