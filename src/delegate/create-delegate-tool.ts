@@ -145,15 +145,20 @@ export function createDelegateTool(params: CreateDelegateToolParams): ToolDefini
 
       const runParams = buildRunParams({ match, task: toolParams.task, signal, toolParams: params, emitPartial });
 
+      // Animate pending box dots (cycle every 500ms)
+      const animationInterval = setInterval(emitPartial, 500);
+
       let result: Awaited<ReturnType<RunAgentFn>>;
       try {
         result = await runAgentFn(runParams);
       } catch (err) {
+        clearInterval(animationInterval);
         unsubscribe();
         const message = err instanceof Error ? err.message : String(err);
         footerState.setError({ name: toolParams.target, error: message });
         throw err;
       }
+      clearInterval(animationInterval);
       unsubscribe();
 
       if (result.error) {
