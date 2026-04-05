@@ -14,7 +14,7 @@ Never add `Co-Authored-By` trailers or any AI attribution to commit messages.
 | Typecheck | `npx tsc --noEmit` |
 | Lint | `npx biome check path/to/file.ts` |
 | Lint fix | `npx biome check --fix path/to/file.ts` |
-| Test file | `npx vitest run path/to/file.test.ts` |
+| Test file | `npm test -- path/to/file.test.ts` |
 | All checks | `npm run check` |
 
 ## Project Structure
