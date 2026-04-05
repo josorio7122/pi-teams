@@ -62,14 +62,19 @@ members:
 
 - **`agent`** — resolves to `{paths.agents}/{name}.md`. The file must exist and its frontmatter `name` must match.
 - **`team`** — a display name for grouping. Not an agent — just a label.
-- **`lead`** — optional. If present, the parent delegates to the lead, and the lead delegates to the team's members. If absent, the parent delegates directly to the team's members.
+- **`lead`** — **required** on every team. The lead is the coordinator — the parent delegates to the lead, and the lead delegates to the team's members. The Orchestrator is the implicit lead of the top level. If you don't need a coordinator, use flat agents instead of a `team` wrapper.
 - **`consult-when`** — optional text injected into the parent's prompt as a routing hint. Helps the LLM decide when to delegate here.
 - **`members`** — recursive. Each item is either `{ agent: name }` or `{ team: name, members: [...] }`.
 - Nesting depth is unbounded in the schema but practically limited by context window size.
 
-### Discovery Per Level
+### Hierarchy Rules
 
-pi-teams walks the tree top-down and loads each referenced agent. The **tree defines the role**, not the agent's frontmatter — if an agent sits at a leaf, it's a worker in that context. If it's a `lead`, it coordinates that team's members. The same agent could appear in different positions in different team configs.
+- The **Orchestrator** is the top-level lead — it coordinates everything below it
+- Every **team** must have a **lead** — no optional coordinators
+- **Flat agents** under any coordinator don't need a team wrapper
+- The tree defines the role — if an agent sits at a leaf, it's a worker in that context
+
+pi-teams walks the tree top-down and loads each referenced agent.
 
 ## Examples
 

@@ -14,7 +14,7 @@ function collectAgents(config: TeamConfig) {
         agents.push(member.agent);
       } else {
         teamNames.push(member.team);
-        if (member.lead) agents.push(member.lead);
+        agents.push(member.lead);
         walk(member.members);
       }
     }

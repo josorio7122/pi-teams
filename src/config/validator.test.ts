@@ -128,8 +128,8 @@ describe("validateTeamConfig", () => {
         paths: { agents: ".pi/agents/" },
         orchestrator: { agent: "orchestrator" },
         members: [
-          { team: "Engineering", members: [{ agent: "dev-a" }] },
-          { team: "Engineering", members: [{ agent: "dev-b" }] },
+          { team: "Engineering", lead: "lead-a", members: [{ agent: "dev-a" }] },
+          { team: "Engineering", lead: "lead-b", members: [{ agent: "dev-b" }] },
         ],
       });
       expect(result.ok).toBe(false);

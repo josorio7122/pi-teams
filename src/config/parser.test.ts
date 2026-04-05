@@ -95,6 +95,22 @@ describe("parseTeamFile", () => {
       expect(result.value.members[2]).toEqual({ agent: "code-reviewer" });
     });
 
+    it("parses consult-when on flat agent", () => {
+      const result = parseTeamFile(`---
+paths:
+  agents: .pi/agents/
+orchestrator:
+  agent: orchestrator
+members:
+  - agent: architect
+    consult-when: Design decisions, technical planning
+---`);
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      const member = result.value.members[0]!;
+      expect(member).toMatchObject({ agent: "architect", "consult-when": "Design decisions, technical planning" });
+    });
+
     it("parses deep nested config", () => {
       const result = parseTeamFile(deepNested);
       expect(result.ok).toBe(true);
@@ -154,6 +170,20 @@ orchestrator:
       expect(result.ok).toBe(false);
       if (result.ok) return;
       expect(result.error).toContain("members");
+    });
+
+    it("rejects team without lead", () => {
+      const result = parseTeamFile(`---
+paths:
+  agents: .pi/agents/
+orchestrator:
+  agent: orchestrator
+members:
+  - team: Engineering
+    members:
+      - agent: builder
+---`);
+      expect(result.ok).toBe(false);
     });
 
     it("rejects empty members", () => {

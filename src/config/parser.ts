@@ -1,13 +1,16 @@
 import { parseFrontmatter } from "@mariozechner/pi-coding-agent";
 import { z } from "zod/v4";
 
-const AgentMemberSchema = z.object({ agent: z.string().min(1) });
+const AgentMemberSchema = z.object({
+  agent: z.string().min(1),
+  "consult-when": z.string().min(1).optional(),
+});
 
 type TeamMember = z.infer<typeof AgentMemberSchema> | TeamNode;
 type TeamNode = {
   team: string;
   color?: string | undefined;
-  lead?: string | undefined;
+  lead: string;
   "consult-when"?: string | undefined;
   members: TeamMember[];
 };
@@ -17,7 +20,7 @@ const TeamMemberSchema: z.ZodType<TeamMember> = z.union([
   z.object({
     team: z.string().min(1),
     color: z.string().optional(),
-    lead: z.string().min(1).optional(),
+    lead: z.string().min(1),
     "consult-when": z.string().min(1).optional(),
     members: z.lazy(() => z.array(TeamMemberSchema).min(1)),
   }),
