@@ -86,17 +86,21 @@ export function createDelegateTool(params: CreateDelegateToolParams): ToolDefini
     renderResult(result, options, theme) {
       // Skip first event (delegation) — renderCall already shows it.
       const all = (result.details as { events?: ReadonlyArray<ConversationEvent> })?.events ?? [];
-      const events = [...all.slice(1)];
+      let events = all.slice(1);
 
-      // When streaming, show a pending box for the agent that's currently working
       if (options.isPartial) {
+        // Show a pending box for the agent that's currently working
         const lastEvent = all[all.length - 1];
         if (lastEvent?.type === "delegation") {
           const status = footerState.get(lastEvent.to);
           const phase = status.status === "running" && status.metrics ? "working" : "initializing";
           const dots = ".".repeat((Math.floor(Date.now() / 500) % 3) + 1);
-          events.push({ type: "response", agent: lastEvent.to, output: `${phase}${dots}` });
+          events = [...events, { type: "response", agent: lastEvent.to, output: `${phase}${dots}` }];
         }
+      } else {
+        // Final render: drop orphaned delegations (no matching response, e.g. abort)
+        const responded = new Set(events.filter((e) => e.type === "response").map((e) => e.agent));
+        events = events.filter((e) => e.type !== "delegation" || responded.has(e.to));
       }
 
       return renderConversation({ events, agents: params.agents, theme });
