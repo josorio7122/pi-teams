@@ -1,6 +1,6 @@
 /** Simulates the pi-teams conversation view. Usage: npm run simulate:conversation */
 import { Markdown, type MarkdownTheme, Text } from "@mariozechner/pi-tui";
-import { BorderedBox } from "../src/tui/bordered-box.js";
+import { BorderedBox } from "pi-agents";
 import { agents, conversation } from "./conversation-data.js";
 import type { Agent, ConversationEvent } from "./conversation-data.js";
 
