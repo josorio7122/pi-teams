@@ -6,53 +6,61 @@ import { parseAgentFile, validateAgent } from "pi-agents";
 type ResolveSuccess = { readonly ok: true; readonly agents: ReadonlyMap<string, AgentConfig> };
 type ResolveFailure = { readonly ok: false; readonly errors: ReadonlyArray<string> };
 type ResolveResult = ResolveSuccess | ResolveFailure;
+type AgentResult =
+  | { readonly ok: true; readonly name: string; readonly config: AgentConfig }
+  | { readonly ok: false; readonly errors: ReadonlyArray<string> };
+
+async function loadAgent(params: { readonly agentsDir: string; readonly name: string }): Promise<AgentResult> {
+  const filePath = join(params.agentsDir, `${params.name}.md`);
+
+  try {
+    await access(filePath);
+  } catch {
+    return { ok: false, errors: [`Agent "${params.name}" not found at ${filePath}`] };
+  }
+
+  const content = await readFile(filePath, "utf-8");
+  const parsed = parseAgentFile(content);
+  if (!parsed.ok) {
+    return { ok: false, errors: [`Agent "${params.name}" parse error: ${parsed.error}`] };
+  }
+
+  const validated = validateAgent({
+    frontmatter: parsed.value.frontmatter,
+    body: parsed.value.body,
+    filePath,
+    source: "project",
+  });
+
+  if (!validated.ok) {
+    return { ok: false, errors: validated.errors.map((d) => `Agent "${params.name}": ${d.message}`) };
+  }
+
+  if (validated.value.frontmatter.name !== params.name) {
+    return {
+      ok: false,
+      errors: [
+        `Agent "${params.name}": frontmatter name is "${validated.value.frontmatter.name}" but expected "${params.name}"`,
+      ],
+    };
+  }
+
+  return { ok: true, name: params.name, config: validated.value };
+}
 
 export async function resolveAgents(params: {
   readonly agentsDir: string;
   readonly names: ReadonlyArray<string>;
 }): Promise<ResolveResult> {
-  const errors: string[] = [];
-  const agents = new Map<string, AgentConfig>();
+  const results = await Promise.all(params.names.map((name) => loadAgent({ agentsDir: params.agentsDir, name })));
 
-  for (const name of params.names) {
-    const filePath = join(params.agentsDir, `${name}.md`);
-
-    try {
-      await access(filePath);
-    } catch {
-      errors.push(`Agent "${name}" not found at ${filePath}`);
-      continue;
-    }
-
-    const content = await readFile(filePath, "utf-8");
-    const parsed = parseAgentFile(content);
-    if (!parsed.ok) {
-      errors.push(`Agent "${name}" parse error: ${parsed.error}`);
-      continue;
-    }
-
-    const validated = validateAgent({
-      frontmatter: parsed.value.frontmatter,
-      body: parsed.value.body,
-      filePath,
-      source: "project",
-    });
-
-    if (!validated.ok) {
-      for (const d of validated.errors) {
-        errors.push(`Agent "${name}": ${d.message}`);
-      }
-      continue;
-    }
-
-    if (validated.value.frontmatter.name !== name) {
-      errors.push(`Agent "${name}": frontmatter name is "${validated.value.frontmatter.name}" but expected "${name}"`);
-      continue;
-    }
-
-    agents.set(name, validated.value);
-  }
+  const errors = results.filter((r): r is AgentResult & { ok: false } => !r.ok).flatMap((r) => r.errors);
 
   if (errors.length > 0) return { ok: false, errors };
+
+  const agents = new Map(
+    results.filter((r): r is AgentResult & { ok: true } => r.ok).map((r) => [r.name, r.config] as const),
+  );
+
   return { ok: true, agents };
 }

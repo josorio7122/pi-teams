@@ -1,7 +1,7 @@
 import type { ThemeColor } from "@mariozechner/pi-coding-agent";
 import { truncateToWidth } from "@mariozechner/pi-tui";
 import type { AgentMetrics } from "pi-agents";
-import { aggregateMetricsArray, colorize, formatUsageStats, spinnerFrame } from "pi-agents";
+import { colorize, formatUsageStats } from "pi-agents";
 import type { AgentNode, GraphNode, TeamGraph } from "../graph/builder.js";
 import type { AgentStatus, FooterState } from "./state.js";
 
@@ -126,7 +126,7 @@ export function renderFooter(params: {
   const allMetrics = state.allMetrics();
   const headerLabel = theme.bold("pi-teams");
   const headerStats =
-    allMetrics.length > 0 ? `  ${theme.fg("dim", `Σ ${formatUsageStats(aggregateMetricsArray(allMetrics))}`)}` : "";
+    allMetrics.length > 0 ? `  ${theme.fg("dim", `Σ ${formatUsageStats(aggregateMetrics(allMetrics))}`)}` : "";
   const header = `${headerLabel}${headerStats}`;
 
   // Orchestrator
