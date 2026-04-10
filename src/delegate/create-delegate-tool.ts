@@ -4,6 +4,7 @@ import type { AgentConfig, RunAgentParams, RunAgentResult } from "pi-agents";
 import { renderConversation } from "../tui/conversation.js";
 import type { ConversationEvent, FooterState } from "../tui/state.js";
 import { buildDelegateGuidelines } from "./guidelines.js";
+import { buildFinalEvents, buildPartialEvents } from "./render-events.js";
 import type { DelegateTarget } from "./targets.js";
 import { extractTargets } from "./targets.js";
 import { buildTargetsBlock } from "./variables.js";
@@ -20,6 +21,7 @@ type CreateDelegateToolParams = Readonly<{
   sharedContext: NonNullable<RunAgentParams["sharedContext"]>;
   footerState: FooterState;
   agents: ReadonlyMap<string, AgentConfig>;
+  parentScopeId?: number;
 }>;
 
 const DelegateParams = Type.Object({
@@ -35,8 +37,9 @@ function buildRunParams(params: {
   readonly signal: AbortSignal | undefined;
   readonly toolParams: CreateDelegateToolParams;
   readonly emitPartial?: () => void;
+  readonly scopeId: number;
 }): RunAgentParams {
-  const { match, task, signal, toolParams: tp } = params;
+  const { match, task, signal, toolParams: tp, scopeId } = params;
   const extraVariables: Readonly<Record<string, string>> = match.teamMembers
     ? { TEAM_MEMBERS_BLOCK: buildTargetsBlock(extractTargets(match.teamMembers)) }
     : {};
@@ -44,7 +47,14 @@ function buildRunParams(params: {
   const targetHasDelegate = match.config.frontmatter.tools?.includes("delegate") ?? false;
   const customTools =
     targetHasDelegate && match.teamMembers
-      ? [createDelegateTool({ ...tp, callerName: match.name, targets: extractTargets(match.teamMembers) })]
+      ? [
+          createDelegateTool({
+            ...tp,
+            callerName: match.name,
+            targets: extractTargets(match.teamMembers),
+            parentScopeId: scopeId,
+          }),
+        ]
       : undefined;
 
   return {
@@ -74,7 +84,7 @@ export function createDelegateTool(params: CreateDelegateToolParams): ToolDefini
     label: "Delegate",
     description: "Delegate a task to a specialized agent or team lead.",
     promptSnippet: "Delegate tasks to specialized agents by name",
-    promptGuidelines: [...buildDelegateGuidelines(targets)],
+    promptGuidelines: [...buildDelegateGuidelines()],
     parameters: DelegateParams,
 
     renderCall(args, theme) {
@@ -84,32 +94,12 @@ export function createDelegateTool(params: CreateDelegateToolParams): ToolDefini
 
     // biome-ignore lint/complexity/useMaxParams: implements Pi's ToolDefinition.renderResult (4 positional params)
     renderResult(result, options, theme) {
-      // Skip first event (delegation) — renderCall already shows it.
       const all = (result.details as { events?: ReadonlyArray<ConversationEvent> })?.events ?? [];
-      let events = all.slice(1);
+      const tail = all.slice(1);
 
-      if (options.isPartial) {
-        // Show a pending box for the agent that's currently working
-        const lastEvent = all[all.length - 1];
-        if (lastEvent?.type === "delegation") {
-          const status = footerState.get(lastEvent.to);
-          const hasActivity = status.status === "running" && status.metrics && status.metrics.turns > 0;
-          const phase = hasActivity ? "working" : "initializing";
-          const dots = ".".repeat((Math.floor(Date.now() / 500) % 3) + 1);
-          events = [...events, { type: "response", agent: lastEvent.to, output: `${phase}${dots}` }];
-        }
-      } else {
-        // Final render: drop orphaned delegations and empty responses (e.g. abort)
-        const responses = events.filter(
-          (e): e is ConversationEvent & { type: "response" } => e.type === "response" && e.output.length > 0,
-        );
-        const responded = new Set(responses.map((e) => e.agent));
-        events = events.filter((e) => {
-          if (e.type === "delegation") return responded.has(e.to);
-          if (e.type === "response") return e.output.length > 0;
-          return true;
-        });
-      }
+      const events = options.isPartial
+        ? buildPartialEvents({ events: tail, getStatus: (name) => footerState.get(name) })
+        : buildFinalEvents(tail);
 
       return renderConversation({ events, agents: params.agents, theme });
     },
@@ -125,12 +115,12 @@ export function createDelegateTool(params: CreateDelegateToolParams): ToolDefini
         throw new Error(`Unknown delegate target "${toolParams.target}". Available: ${available}`);
       }
 
-      // Record delegation event for conversation view
-      const scopeStart = footerState.getEvents().length;
+      // Create a scope for this execution to isolate events from sibling delegates
+      const scopeId = footerState.nextScopeId(params.parentScopeId);
 
       // Subscribe BEFORE adding events so the first event triggers onUpdate
       const emitPartial = () => {
-        const scopeEvents = footerState.getEvents().slice(scopeStart);
+        const scopeEvents = footerState.getEventsForScope(scopeId);
         onUpdate?.({
           content: [{ type: "text", text: "" }],
           details: { events: scopeEvents },
@@ -138,10 +128,23 @@ export function createDelegateTool(params: CreateDelegateToolParams): ToolDefini
       };
       const unsubscribe = footerState.subscribe(emitPartial);
 
-      footerState.addEvent({ type: "delegation", from: callerName, to: toolParams.target, task: toolParams.task });
+      footerState.addEvent({
+        type: "delegation",
+        from: callerName,
+        to: toolParams.target,
+        task: toolParams.task,
+        _scopeId: scopeId,
+      });
       footerState.setRunning(toolParams.target);
 
-      const runParams = buildRunParams({ match, task: toolParams.task, signal, toolParams: params, emitPartial });
+      const runParams = buildRunParams({
+        match,
+        task: toolParams.task,
+        signal,
+        toolParams: params,
+        emitPartial,
+        scopeId,
+      });
 
       // Animate pending box dots (cycle every 500ms)
       const animationInterval = setInterval(emitPartial, 500);
@@ -166,8 +169,8 @@ export function createDelegateTool(params: CreateDelegateToolParams): ToolDefini
       }
 
       // Record response event for conversation view
-      footerState.addEvent({ type: "response", agent: toolParams.target, output: result.output });
-      const scopeEvents = footerState.getEvents().slice(scopeStart);
+      footerState.addEvent({ type: "response", agent: toolParams.target, output: result.output, _scopeId: scopeId });
+      const scopeEvents = footerState.getEventsForScope(scopeId);
 
       return {
         content: [{ type: "text", text: result.output }],
