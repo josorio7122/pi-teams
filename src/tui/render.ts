@@ -4,8 +4,6 @@ import { aggregateMetricsArray, colorize, formatUsageStats, spinnerFrame } from 
 import type { AgentNode, GraphNode, TeamGraph } from "../graph/builder.js";
 import type { AgentStatus, FooterState } from "./state.js";
 
-export type { RenderTheme } from "pi-agents";
-
 function statusText(params: { readonly status: AgentStatus; readonly theme: RenderTheme }) {
   const { status, theme } = params;
   switch (status.status) {
@@ -30,29 +28,26 @@ function agentLine(params: {
 }) {
   const { node, state, theme, nameWidth } = params;
   const fm = node.config.frontmatter;
-  const padded = fm.name.length < nameWidth ? fm.name + " ".repeat(nameWidth - fm.name.length) : fm.name;
+  const padded = fm.name.padEnd(nameWidth);
   const paddedColored = colorize(fm.color, padded);
   const model = theme.fg("dim", `(${fm.model})`);
   const status = statusText({ status: state.get(fm.name), theme });
   return `${fm.icon} ${paddedColored}  ${model}  ${status}`;
 }
 
+function collectNameLengths(members: ReadonlyArray<GraphNode>): ReadonlyArray<number> {
+  return members.flatMap((node) =>
+    node.type === "agent"
+      ? [node.config.frontmatter.name.length]
+      : [node.lead.config.frontmatter.name.length, ...collectNameLengths(node.members)],
+  );
+}
+
 function computeMaxNameLen(params: { readonly graph: TeamGraph }) {
-  let max = params.graph.orchestrator.config.frontmatter.name.length;
-
-  function walk(members: ReadonlyArray<GraphNode>) {
-    for (const node of members) {
-      if (node.type === "agent") {
-        max = Math.max(max, node.config.frontmatter.name.length);
-      } else {
-        max = Math.max(max, node.lead.config.frontmatter.name.length);
-        walk(node.members);
-      }
-    }
-  }
-
-  walk(params.graph.members);
-  return max;
+  return Math.max(
+    params.graph.orchestrator.config.frontmatter.name.length,
+    ...collectNameLengths(params.graph.members),
+  );
 }
 
 function renderMembers(params: {

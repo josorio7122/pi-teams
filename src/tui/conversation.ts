@@ -1,9 +1,8 @@
 import { getMarkdownTheme } from "@mariozechner/pi-coding-agent";
 import { Container, Markdown, Spacer } from "@mariozechner/pi-tui";
-import type { AgentConfig } from "pi-agents";
+import type { AgentConfig, RenderTheme } from "pi-agents";
 import { colorize } from "pi-agents";
 import { BorderedBox } from "./bordered-box.js";
-import type { RenderTheme } from "./render.js";
 import type { ConversationEvent } from "./state.js";
 
 function agentLabel(params: { readonly config: AgentConfig; readonly theme: RenderTheme }) {
