@@ -1,11 +1,6 @@
-import type { AgentMetrics } from "pi-agents";
+import type { AgentMetrics, AgentStatus, ConversationEvent } from "pi-agents";
 
-export type AgentStatus = Readonly<
-  | { status: "idle" }
-  | { status: "running"; metrics?: AgentMetrics }
-  | { status: "done"; metrics: AgentMetrics }
-  | { status: "error"; error: string; metrics?: AgentMetrics }
->;
+export type { AgentStatus, ConversationEvent };
 
 export type FooterState = Readonly<{
   get: (name: string) => AgentStatus;
@@ -17,12 +12,10 @@ export type FooterState = Readonly<{
   allMetrics: () => ReadonlyArray<AgentMetrics>;
   addEvent: (event: ConversationEvent) => void;
   getEvents: () => ReadonlyArray<ConversationEvent>;
+  getEventsForScope: (scopeId: number) => ReadonlyArray<ConversationEvent>;
+  nextScopeId: (parentScopeId?: number) => number;
   subscribe: (listener: () => void) => () => void;
 }>;
-
-export type ConversationEvent = Readonly<
-  { type: "delegation"; from: string; to: string; task: string } | { type: "response"; agent: string; output: string }
->;
 
 const IDLE: AgentStatus = { status: "idle" };
 
@@ -30,6 +23,8 @@ export function createFooterState(params: { readonly onUpdate: () => void }): Fo
   const agents = new Map<string, AgentStatus>();
   const events: ConversationEvent[] = [];
   const listeners = new Set<() => void>();
+  let scopeCounter = 0;
+  const scopeChildren = new Map<number, Set<number>>();
 
   const notify = () => params.onUpdate();
   const notifyWithListeners = () => {
@@ -71,6 +66,37 @@ export function createFooterState(params: { readonly onUpdate: () => void }): Fo
       notifyWithListeners();
     },
     getEvents: () => events,
+    getEventsForScope: (scopeId) => {
+      const validScopes = new Set<number>([scopeId]);
+      // Collect all descendant scopes via BFS
+      const queue = [scopeId];
+      while (queue.length > 0) {
+        const current = queue.shift();
+        if (current === undefined) continue;
+        const children = scopeChildren.get(current);
+        if (children) {
+          for (const child of children) {
+            if (!validScopes.has(child)) {
+              validScopes.add(child);
+              queue.push(child);
+            }
+          }
+        }
+      }
+      return events.filter((e) => e._scopeId !== undefined && validScopes.has(e._scopeId));
+    },
+    nextScopeId: (parentScopeId?: number) => {
+      const id = scopeCounter++;
+      if (parentScopeId !== undefined) {
+        let children = scopeChildren.get(parentScopeId);
+        if (!children) {
+          children = new Set();
+          scopeChildren.set(parentScopeId, children);
+        }
+        children.add(id);
+      }
+      return id;
+    },
     subscribe: (listener) => {
       listeners.add(listener);
       return () => {
