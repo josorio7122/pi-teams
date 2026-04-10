@@ -136,7 +136,7 @@ export default function (pi: ExtensionAPI) {
     // Apply theme once — must happen after resources_discover so pi knows the theme
     if (!themeApplied) {
       themeApplied = true;
-      ctx.ui.setTheme("pi-teams-dark");
+      ctx.ui.setTheme("pi-agents-dark");
     }
 
     // Lazy session setup — only create on first user message (avoids empty dirs on restart)
