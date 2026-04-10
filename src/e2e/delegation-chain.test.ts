@@ -1,4 +1,4 @@
-import { access, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { AuthStorage, ModelRegistry } from "@mariozechner/pi-coding-agent";
@@ -13,42 +13,7 @@ import { buildTargetsBlock } from "../delegate/variables.js";
 import { buildTeamGraph } from "../graph/builder.js";
 import { resolveAgents } from "../graph/resolver.js";
 import { createFooterState } from "../tui/state.js";
-
-function agentMd(p: { readonly name: string; readonly role: string; readonly tools: string; readonly body: string }) {
-  return `---
-name: ${p.name}
-description: ${p.name} agent
-model: anthropic/claude-haiku-4-5
-role: ${p.role}
-color: "#ffffff"
-icon: "🤖"
-domain:
-  - path: .
-    read: true
-    write: false
-    delete: false
-tools:
-  ${p.tools}
-skills:
-  - path: .pi/skills/e2e.md
-    when: Always
-knowledge:
-  project:
-    path: .pi/knowledge/project/${p.name}.yaml
-    description: Project knowledge
-    updatable: false
-    max-lines: 100
-  general:
-    path: .pi/knowledge/general/${p.name}.yaml
-    description: General knowledge
-    updatable: false
-    max-lines: 100
-conversation:
-  path: .pi/sessions/{{SESSION_ID}}/conversation.jsonl
----
-${p.body}
-`;
-}
+import { agentMd, fileExists } from "./helpers.js";
 
 async function setupProject() {
   const dir = await mkdtemp(join(tmpdir(), "pi-teams-e2e-"));
@@ -115,15 +80,6 @@ members:
   return { dir, sessionDir, outputPath, conversationLogPath: join(sessionDir, "conversation.jsonl") };
 }
 
-async function fileExists(path: string) {
-  try {
-    await access(path);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 describe("e2e: delegation chain with real LLM", () => {
   const authStorage = AuthStorage.create();
   const modelRegistry = ModelRegistry.create(authStorage);
@@ -164,7 +120,7 @@ describe("e2e: delegation chain with real LLM", () => {
       agents: resolved.agents,
     });
 
-    const guidelines = buildDelegateGuidelines(targets);
+    const guidelines = buildDelegateGuidelines();
     const teamsBlock = buildTargetsBlock(targets);
     const guidelinesBlock = guidelines.join("\n");
 
