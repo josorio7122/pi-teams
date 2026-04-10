@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import type { ContextFile } from "pi-agents";
 import {
@@ -19,10 +20,18 @@ import { buildTargetsBlock } from "./delegate/variables.js";
 import type { TeamGraph } from "./graph/builder.js";
 import { buildTeamGraph } from "./graph/builder.js";
 import { resolveAgents } from "./graph/resolver.js";
+import { extractLastAssistantText } from "./helpers/extract-text.js";
 import { renderFooter } from "./tui/render.js";
 import { createFooterState } from "./tui/state.js";
 
 export default function (pi: ExtensionAPI) {
+  // Register theme path — resources_discover fires after session_start.
+  // Theme is applied in before_agent_start (after pi loads the discovered paths).
+  pi.on("resources_discover", async () => {
+    const extDir = dirname(fileURLToPath(import.meta.url));
+    return { themePaths: [join(extDir, "..", "themes")] };
+  });
+
   // NOTE: pi guarantees session_start completes before before_agent_start fires,
   // so reads of these closure variables in before_agent_start are always after writes.
   let teamGraph: TeamGraph | undefined;
@@ -110,9 +119,6 @@ export default function (pi: ExtensionAPI) {
       // Restrict tools to only what the orchestrator is configured for
       pi.setActiveTools(teamGraph.orchestrator.config.frontmatter.tools ?? []);
 
-      // Apply pi-teams theme (transparent tool backgrounds)
-      ctx.ui.setTheme("pi-teams-dark");
-
       const agentCount = validated.agentNames.length;
       const teamCount = orchestratorTargets.filter((t) => t.teamMembers).length;
       ctx.ui.notify(`[pi-teams] ${agentCount} agents, ${teamCount} teams loaded`, "info");
@@ -122,8 +128,16 @@ export default function (pi: ExtensionAPI) {
     }
   });
 
+  let themeApplied = false;
+
   pi.on("before_agent_start", async (event, ctx) => {
     if (!teamGraph) return;
+
+    // Apply theme once — must happen after resources_discover so pi knows the theme
+    if (!themeApplied) {
+      themeApplied = true;
+      ctx.ui.setTheme("pi-teams-dark");
+    }
 
     // Lazy session setup — only create on first user message (avoids empty dirs on restart)
     if (!sessionRef.conversationLogPath) {
@@ -170,25 +184,14 @@ export default function (pi: ExtensionAPI) {
   pi.on("agent_end", async (event) => {
     if (!sessionRef.conversationLogPath || !teamGraph) return;
 
-    // Extract orchestrator's text response from the last assistant message
-    for (let i = event.messages.length - 1; i >= 0; i--) {
-      const msg = event.messages[i];
-      if (!msg || !("role" in msg) || msg.role !== "assistant" || !Array.isArray(msg.content)) continue;
-      {
-        const text = msg.content
-          .filter((p): p is { type: "text"; text: string } => "type" in p && p.type === "text" && "text" in p)
-          .map((p) => p.text)
-          .join("");
-        if (text.trim()) {
-          await appendToLog(sessionRef.conversationLogPath, {
-            ts: new Date().toISOString(),
-            from: teamGraph.orchestrator.config.frontmatter.name,
-            to: "user",
-            message: text,
-          });
-          break;
-        }
-      }
+    const text = extractLastAssistantText(event.messages as unknown as ReadonlyArray<Record<string, unknown>>);
+    if (text.trim()) {
+      await appendToLog(sessionRef.conversationLogPath, {
+        ts: new Date().toISOString(),
+        from: teamGraph.orchestrator.config.frontmatter.name,
+        to: "user",
+        message: text,
+      });
     }
   });
 }
