@@ -1,20 +1,10 @@
-import type { ThemeColor } from "@mariozechner/pi-coding-agent";
 import { truncateToWidth } from "@mariozechner/pi-tui";
-import type { AgentMetrics } from "pi-agents";
-import { colorize, formatUsageStats } from "pi-agents";
+import type { RenderTheme } from "pi-agents";
+import { aggregateMetricsArray, colorize, formatUsageStats, spinnerFrame } from "pi-agents";
 import type { AgentNode, GraphNode, TeamGraph } from "../graph/builder.js";
 import type { AgentStatus, FooterState } from "./state.js";
 
-export type RenderTheme = Readonly<{
-  fg: (color: ThemeColor, text: string) => string;
-  bold: (text: string) => string;
-}>;
-
-const SPINNER = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
-
-function spinnerFrame() {
-  return SPINNER[Math.floor(Date.now() / 80) % SPINNER.length] ?? "⠋";
-}
+export type { RenderTheme } from "pi-agents";
 
 function statusText(params: { readonly status: AgentStatus; readonly theme: RenderTheme }) {
   const { status, theme } = params;
@@ -65,22 +55,6 @@ function computeMaxNameLen(params: { readonly graph: TeamGraph }) {
   return max;
 }
 
-function aggregateMetrics(all: ReadonlyArray<AgentMetrics>): AgentMetrics {
-  let turns = 0;
-  let inputTokens = 0;
-  let outputTokens = 0;
-  let cost = 0;
-  const toolCalls: Array<{ name: string; args: Record<string, unknown> }> = [];
-  for (const m of all) {
-    turns += m.turns;
-    inputTokens += m.inputTokens;
-    outputTokens += m.outputTokens;
-    cost += m.cost;
-    toolCalls.push(...m.toolCalls);
-  }
-  return { turns, inputTokens, outputTokens, cost, toolCalls };
-}
-
 function renderMembers(params: {
   readonly members: ReadonlyArray<GraphNode>;
   readonly prefix: string;
@@ -126,7 +100,7 @@ export function renderFooter(params: {
   const allMetrics = state.allMetrics();
   const headerLabel = theme.bold("pi-teams");
   const headerStats =
-    allMetrics.length > 0 ? `  ${theme.fg("dim", `Σ ${formatUsageStats(aggregateMetrics(allMetrics))}`)}` : "";
+    allMetrics.length > 0 ? `  ${theme.fg("dim", `Σ ${formatUsageStats(aggregateMetricsArray(allMetrics))}`)}` : "";
   const header = `${headerLabel}${headerStats}`;
 
   // Orchestrator
