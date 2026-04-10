@@ -1,9 +1,8 @@
 import type { ThemeColor } from "@mariozechner/pi-coding-agent";
 import { truncateToWidth } from "@mariozechner/pi-tui";
 import type { AgentMetrics } from "pi-agents";
-import { colorize } from "pi-agents";
+import { aggregateMetricsArray, colorize, formatUsageStats, spinnerFrame } from "pi-agents";
 import type { AgentNode, GraphNode, TeamGraph } from "../graph/builder.js";
-import { formatStats } from "./format.js";
 import type { AgentStatus, FooterState } from "./state.js";
 
 export type RenderTheme = Readonly<{
@@ -24,10 +23,10 @@ function statusText(params: { readonly status: AgentStatus; readonly theme: Rend
       return theme.fg("dim", "idle");
     case "running": {
       const spinner = theme.fg("accent", spinnerFrame());
-      return status.metrics ? `${spinner} ${theme.fg("dim", formatStats(status.metrics))}` : spinner;
+      return status.metrics ? `${spinner} ${theme.fg("dim", formatUsageStats(status.metrics))}` : spinner;
     }
     case "done":
-      return `${theme.fg("success", "✓")} ${theme.fg("dim", formatStats(status.metrics))}`;
+      return `${theme.fg("success", "✓")} ${theme.fg("dim", formatUsageStats(status.metrics))}`;
     case "error":
       return `${theme.fg("error", "✗")} ${theme.fg("error", status.error)}`;
   }
@@ -127,7 +126,7 @@ export function renderFooter(params: {
   const allMetrics = state.allMetrics();
   const headerLabel = theme.bold("pi-teams");
   const headerStats =
-    allMetrics.length > 0 ? `  ${theme.fg("dim", `Σ ${formatStats(aggregateMetrics(allMetrics))}`)}` : "";
+    allMetrics.length > 0 ? `  ${theme.fg("dim", `Σ ${formatUsageStats(aggregateMetricsArray(allMetrics))}`)}` : "";
   const header = `${headerLabel}${headerStats}`;
 
   // Orchestrator

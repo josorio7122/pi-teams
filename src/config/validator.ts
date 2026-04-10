@@ -4,36 +4,22 @@ type ValidateSuccess = { readonly ok: true; readonly agentNames: ReadonlyArray<s
 type ValidateFailure = { readonly ok: false; readonly errors: ReadonlyArray<string> };
 type ValidateResult = ValidateSuccess | ValidateFailure;
 
-function collectAgents(config: TeamConfig) {
-  const agents: string[] = [config.orchestrator.agent];
+function flattenMembers(members: Readonly<TeamConfig["members"]>): ReadonlyArray<string> {
+  return members.flatMap((member) =>
+    "agent" in member ? [member.agent] : [member.lead, ...flattenMembers(member.members)],
+  );
+}
 
-  function walk(members: Readonly<TeamConfig["members"]>) {
-    for (const member of members) {
-      if ("agent" in member) {
-        agents.push(member.agent);
-      } else {
-        agents.push(member.lead);
-        walk(member.members);
-      }
-    }
-  }
-
-  walk(config.members);
-  return { agents };
+function collectAgents(config: TeamConfig): ReadonlyArray<string> {
+  return [config.orchestrator.agent, ...flattenMembers(config.members)];
 }
 
 export function validateTeamConfig(config: TeamConfig): ValidateResult {
-  const { agents } = collectAgents(config);
-  const errors: string[] = [];
+  const agents = collectAgents(config);
 
-  // Check duplicate agents
-  const seen = new Set<string>();
-  for (const name of agents) {
-    if (seen.has(name)) {
-      errors.push(`Agent "${name}" appears more than once — duplicate agent references are not allowed`);
-    }
-    seen.add(name);
-  }
+  const errors = agents
+    .filter((name, i) => agents.indexOf(name) !== i)
+    .map((name) => `Agent "${name}" appears more than once — duplicate agent references are not allowed`);
 
   if (errors.length > 0) return { ok: false, errors };
 
