@@ -1,5 +1,6 @@
 import type { ToolDefinition } from "@mariozechner/pi-coding-agent";
 import { type Static, Type } from "@sinclair/typebox";
+import { isRecord } from "pi-agents";
 import type { AgentConfig, ConversationEvent, RunAgentParams, RunAgentResult } from "pi-agents";
 import { buildFinalEvents, buildPartialEvents, renderConversation } from "pi-agents";
 import type { FooterState } from "../tui/state.js";
@@ -31,9 +32,8 @@ const DelegateParams = Type.Object({
 type DelegateInput = Static<typeof DelegateParams>;
 
 function getDelegateEvents(details: unknown): ReadonlyArray<ConversationEvent> {
-  if (!details || typeof details !== "object") return [];
-  const d = details as Record<string, unknown>;
-  return Array.isArray(d.events) ? (d.events as ReadonlyArray<ConversationEvent>) : [];
+  if (!isRecord(details)) return [];
+  return Array.isArray(details.events) ? (details.events as ReadonlyArray<ConversationEvent>) : [];
 }
 
 function buildRunParams(params: {
@@ -70,10 +70,10 @@ function buildRunParams(params: {
     sessionDir: tp.session.sessionDir,
     conversationLogPath: tp.session.conversationLogPath,
     modelRegistry: tp.modelRegistry,
-    ...(signal ? { signal } : {}),
-    ...(extraVariables ? { extraVariables } : {}),
-    ...(customTools ? { customTools } : {}),
-    ...(tp.sharedContext.length > 0 ? { sharedContext: tp.sharedContext } : {}),
+    signal,
+    extraVariables,
+    customTools,
+    sharedContext: tp.sharedContext.length > 0 ? tp.sharedContext : undefined,
     onUpdate: (metrics) => {
       tp.footerState.updateMetrics({ name: match.config.frontmatter.name, metrics });
       params.emitPartial?.();
