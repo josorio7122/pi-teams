@@ -1,6 +1,17 @@
-import { access, mkdir, mkdtemp, writeFile } from "node:fs/promises";
+import { access, mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import type { ModelRegistry } from "@mariozechner/pi-coding-agent";
+import { runAgent } from "pi-agents";
+import { parseTeamFile } from "../config/parser.js";
+import { validateTeamConfig } from "../config/validator.js";
+import { createDelegateTool } from "../delegate/create-delegate-tool.js";
+import { buildDelegateGuidelines } from "../delegate/guidelines.js";
+import { extractTargets } from "../delegate/targets.js";
+import { buildTargetsBlock } from "../delegate/variables.js";
+import { buildTeamGraph } from "../graph/builder.js";
+import { resolveAgents } from "../graph/resolver.js";
+import { createFooterState } from "../tui/state.js";
 
 export function agentMd(p: {
   readonly name: string;
@@ -80,4 +91,51 @@ export async function fileExists(path: string) {
   } catch {
     return false;
   }
+}
+
+export async function bootstrapTeam(params: {
+  readonly dir: string;
+  readonly sessionDir: string;
+  readonly conversationLogPath: string;
+  readonly modelRegistry: ModelRegistry;
+  readonly callerName?: string;
+}) {
+  const teamsContent = await readFile(join(params.dir, ".pi", "teams", "teams.md"), "utf-8");
+  const parsed = parseTeamFile(teamsContent);
+  if (!parsed.ok) throw new Error(parsed.error);
+
+  const validated = validateTeamConfig(parsed.value);
+  if (!validated.ok) throw new Error(validated.errors.join(", "));
+
+  const resolved = await resolveAgents({
+    agentsDir: join(params.dir, parsed.value.paths.agents),
+    names: validated.agentNames,
+  });
+  if (!resolved.ok) throw new Error(resolved.errors.join(", "));
+
+  const graph = buildTeamGraph(parsed.value, resolved.agents);
+  const targets = extractTargets(graph.members);
+  const footerState = createFooterState({ onUpdate: () => {} });
+
+  const callerName = params.callerName ?? graph.orchestrator.config.frontmatter.name;
+  const delegateTool = createDelegateTool({
+    callerName,
+    targets,
+    session: { conversationLogPath: params.conversationLogPath, sessionDir: params.sessionDir },
+    cwd: params.dir,
+    modelRegistry: params.modelRegistry,
+    runAgentFn: runAgent,
+    sharedContext: [],
+    footerState,
+    agents: resolved.agents,
+  });
+
+  const guidelines = buildDelegateGuidelines();
+  const teamsBlock = buildTargetsBlock(targets);
+  const guidelinesBlock = guidelines.join("\n");
+  const extraVariables = {
+    TEAMS_BLOCK: `## Available Agents\n${teamsBlock}\n\n## Delegation Guidelines\n${guidelinesBlock}`,
+  };
+
+  return { graph, delegateTool, extraVariables, footerState, resolved };
 }

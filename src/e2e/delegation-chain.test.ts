@@ -3,16 +3,7 @@ import { join } from "node:path";
 import { AuthStorage, ModelRegistry } from "@mariozechner/pi-coding-agent";
 import { readLog, runAgent } from "pi-agents";
 import { afterEach, describe, expect, it } from "vitest";
-import { parseTeamFile } from "../config/parser.js";
-import { validateTeamConfig } from "../config/validator.js";
-import { createDelegateTool } from "../delegate/create-delegate-tool.js";
-import { buildDelegateGuidelines } from "../delegate/guidelines.js";
-import { extractTargets } from "../delegate/targets.js";
-import { buildTargetsBlock } from "../delegate/variables.js";
-import { buildTeamGraph } from "../graph/builder.js";
-import { resolveAgents } from "../graph/resolver.js";
-import { createFooterState } from "../tui/state.js";
-import { agentMd, fileExists, setupBaseProject } from "./helpers.js";
+import { agentMd, bootstrapTeam, fileExists, setupBaseProject } from "./helpers.js";
 
 async function setupProject() {
   const dir = await setupBaseProject({
@@ -82,37 +73,12 @@ describe("e2e: delegation chain with real LLM", () => {
   it("orchestrator delegates to worker who writes a file", async () => {
     project = await setupProject();
 
-    const teamsContent = await readFile(join(project.dir, ".pi", "teams", "teams.md"), "utf-8");
-    const parsed = parseTeamFile(teamsContent);
-    if (!parsed.ok) throw new Error(parsed.error);
-
-    const validated = validateTeamConfig(parsed.value);
-    if (!validated.ok) throw new Error(validated.errors.join(", "));
-
-    const resolved = await resolveAgents({
-      agentsDir: join(project.dir, parsed.value.paths.agents),
-      names: validated.agentNames,
-    });
-    if (!resolved.ok) throw new Error(resolved.errors.join(", "));
-
-    const graph = buildTeamGraph(parsed.value, resolved.agents);
-    const targets = extractTargets(graph.members);
-
-    const delegateTool = createDelegateTool({
-      callerName: "orchestrator",
-      targets,
-      session: { conversationLogPath: project.conversationLogPath, sessionDir: project.sessionDir },
-      cwd: project.dir,
+    const { graph, delegateTool, extraVariables } = await bootstrapTeam({
+      dir: project.dir,
+      sessionDir: project.sessionDir,
+      conversationLogPath: project.conversationLogPath,
       modelRegistry,
-      runAgentFn: runAgent,
-      sharedContext: [],
-      footerState: createFooterState({ onUpdate: () => {} }),
-      agents: resolved.agents,
     });
-
-    const guidelines = buildDelegateGuidelines();
-    const teamsBlock = buildTargetsBlock(targets);
-    const guidelinesBlock = guidelines.join("\n");
 
     const result = await runAgent({
       agentConfig: graph.orchestrator.config,
@@ -123,9 +89,7 @@ describe("e2e: delegation chain with real LLM", () => {
       modelRegistry,
       customTools: [delegateTool],
       sharedContext: [],
-      extraVariables: {
-        TEAMS_BLOCK: `## Available Agents\n${teamsBlock}\n\n## Delegation Guidelines\n${guidelinesBlock}`,
-      },
+      extraVariables,
     });
 
     // The orchestrator should not error
