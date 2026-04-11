@@ -1,4 +1,4 @@
-import { access, readFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { AgentConfig } from "pi-agents";
 import { parseAgentFile, validateAgent } from "pi-agents";
@@ -13,13 +13,12 @@ type AgentResult =
 async function loadAgent(params: { readonly agentsDir: string; readonly name: string }): Promise<AgentResult> {
   const filePath = join(params.agentsDir, `${params.name}.md`);
 
+  let content: string;
   try {
-    await access(filePath);
+    content = await readFile(filePath, "utf-8");
   } catch {
     return { ok: false, errors: [`Agent "${params.name}" not found at ${filePath}`] };
   }
-
-  const content = await readFile(filePath, "utf-8");
   const parsed = parseAgentFile(content);
   if (!parsed.ok) {
     return { ok: false, errors: [`Agent "${params.name}" parse error: ${parsed.error}`] };
