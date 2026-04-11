@@ -45,9 +45,9 @@ function buildRunParams(params: {
   readonly scopeId: number;
 }): RunAgentParams {
   const { match, task, signal, toolParams: tp, scopeId } = params;
-  const extraVariables: Readonly<Record<string, string>> = match.teamMembers
+  const extraVariables = match.teamMembers
     ? { TEAM_MEMBERS_BLOCK: buildTargetsBlock(extractTargets(match.teamMembers)) }
-    : {};
+    : undefined;
 
   const targetHasDelegate = match.config.frontmatter.tools?.includes("delegate") ?? false;
   const customTools =
@@ -71,7 +71,7 @@ function buildRunParams(params: {
     conversationLogPath: tp.session.conversationLogPath,
     modelRegistry: tp.modelRegistry,
     ...(signal ? { signal } : {}),
-    ...(Object.keys(extraVariables).length > 0 ? { extraVariables } : {}),
+    ...(extraVariables ? { extraVariables } : {}),
     ...(customTools ? { customTools } : {}),
     ...(tp.sharedContext.length > 0 ? { sharedContext: tp.sharedContext } : {}),
     onUpdate: (metrics) => {
