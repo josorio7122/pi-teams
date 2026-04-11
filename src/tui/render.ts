@@ -1,8 +1,8 @@
 import { truncateToWidth } from "@mariozechner/pi-tui";
-import type { RenderTheme } from "pi-agents";
+import type { AgentStatus, RenderTheme } from "pi-agents";
 import { aggregateMetricsArray, colorize, formatUsageStats, spinnerFrame } from "pi-agents";
 import type { AgentNode, GraphNode, TeamGraph } from "../graph/builder.js";
-import type { AgentStatus, FooterState } from "./state.js";
+import type { FooterState } from "./state.js";
 
 function statusText(params: { readonly status: AgentStatus; readonly theme: RenderTheme }) {
   const { status, theme } = params;

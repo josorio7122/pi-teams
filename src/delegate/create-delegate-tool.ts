@@ -1,8 +1,8 @@
 import type { ToolDefinition } from "@mariozechner/pi-coding-agent";
 import { type Static, Type } from "@sinclair/typebox";
-import type { AgentConfig, RunAgentParams, RunAgentResult } from "pi-agents";
+import type { AgentConfig, ConversationEvent, RunAgentParams, RunAgentResult } from "pi-agents";
 import { buildFinalEvents, buildPartialEvents, renderConversation } from "pi-agents";
-import type { ConversationEvent, FooterState } from "../tui/state.js";
+import type { FooterState } from "../tui/state.js";
 import { buildDelegateGuidelines } from "./guidelines.js";
 import type { DelegateTarget } from "./targets.js";
 import { extractTargets } from "./targets.js";

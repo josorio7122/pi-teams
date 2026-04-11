@@ -1,8 +1,6 @@
 import type { AgentMetrics, AgentStatus, ConversationEvent } from "pi-agents";
 import { sumMetrics } from "pi-agents";
 
-export type { AgentStatus, ConversationEvent };
-
 export type FooterState = Readonly<{
   get: (name: string) => AgentStatus;
   setRunning: (name: string) => void;
