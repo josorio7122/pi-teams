@@ -87,12 +87,16 @@ orchestrator:
 
 members:
   - agent: architect
+    consult-when: Design decisions, trade-offs, approach selection for new features
   - agent: builder
+    consult-when: Implementation — writing code, running tests, fixing bugs
   - agent: code-reviewer
+    consult-when: Pre-merge review — after code changes, before shipping
   - agent: investigator
+    consult-when: Bug diagnosis, root cause analysis — "why does X fail"
 ```
 
-The orchestrator sees all four agents and picks the right one based on its prompt + the user's request.
+The orchestrator sees all four agents and routes based on `consult-when` hints + the user's request.
 
 ### Nested — the video's structure (team of teams)
 
@@ -138,17 +142,58 @@ orchestrator:
 
 members:
   - agent: architect
+    consult-when: Design decisions, architecture, approach selection
 
   - lead: engineering-lead
     consult-when: Implementation, code changes, refactoring
     members:
       - agent: frontend-dev
+        consult-when: UI components, pages, styling, client-side logic
       - agent: backend-dev
+        consult-when: APIs, database, services, server-side logic
 
   - agent: code-reviewer
+    consult-when: Pre-merge review after implementation
 ```
 
 The orchestrator can delegate to `architect` or `code-reviewer` directly, or to the Engineering team via its lead.
+
+### Real-world — engineering team with routing hints
+
+Every member has `consult-when` so the parent knows when to delegate to each specialist.
+
+```yaml
+paths:
+  agents: .pi/agents/
+
+orchestrator:
+  agent: orchestrator
+
+members:
+  - agent: investigator
+    consult-when: Bug diagnosis, root cause analysis, debugging — "X is broken", "why does Y fail"
+  - lead: eng-lead
+    consult-when: All engineering work — features, fixes, refactors, reviews, tests, architecture, recon
+    members:
+      - agent: scout
+        consult-when: First step on every task — codebase recon, find files, understand what exists
+      - agent: architect
+        consult-when: New features needing design decisions, trade-off analysis, approach selection
+      - agent: planner
+        consult-when: Task decomposition after scout/architect — ordered steps, dependencies, edge cases
+      - agent: designer
+        consult-when: UI/UX decisions, component specs, design system — before frontend implementation
+      - agent: backend-dev
+        consult-when: Backend implementation — APIs, database, services, tests
+      - agent: frontend-dev
+        consult-when: Frontend implementation — components, pages, styling, tests
+      - agent: code-reviewer
+        consult-when: After every implementation — pre-merge review, structural issues
+      - agent: qa-tester
+        consult-when: After review passes — browser testing for user-facing features
+```
+
+The orchestrator routes to investigator (bugs) or eng-lead (everything else). Eng-lead chains its members: scout → planner → dev → reviewer → qa.
 
 ### Deep nesting — sub-teams within teams
 
@@ -167,15 +212,20 @@ members:
         consult-when: UI, components, styling, client state
         members:
           - agent: react-dev
+            consult-when: React components, hooks, state management
           - agent: css-specialist
+            consult-when: Styling, layout, responsive design, animations
 
       - lead: backend-lead
         consult-when: APIs, databases, infrastructure
         members:
           - agent: api-dev
+            consult-when: REST/GraphQL endpoints, request handling, auth
           - agent: db-engineer
+            consult-when: Schema design, migrations, query optimization
 
       - agent: devops
+        consult-when: CI/CD, deployment, infrastructure, monitoring
 ```
 
 Delegation: Orchestrator → Engineering Lead → Frontend Lead → React Dev (3 levels deep).

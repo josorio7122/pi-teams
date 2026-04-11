@@ -7,5 +7,6 @@ function formatEntry(t: DelegateTarget) {
 }
 
 export function buildTargetsBlock(targets: ReadonlyArray<DelegateTarget>) {
-  return targets.map(formatEntry).join("\n");
+  const entries = targets.map(formatEntry).join("\n");
+  return `## Team Members\n\n${entries}\n\nEach delegate call must address ONE concern. For independent concerns, make multiple parallel delegate calls in a single response — including to the same agent.`;
 }
