@@ -134,4 +134,22 @@ describe("renderFooter", () => {
     const spacers = lines.map(strip).filter((l) => l.trim() === "│" || l.trim() === "");
     expect(spacers.length).toBeGreaterThan(0);
   });
+
+  it("shows running status with live metrics", () => {
+    const state = createFooterState({ onUpdate: () => {} });
+    state.setRunning("builder");
+    state.updateMetrics({ name: "builder", metrics });
+    const lines = renderFooter({ graph: flatGraph(), state, theme: noopTheme });
+    const builderLine = lines.map(strip).find((l) => l.includes("builder"));
+    expect(builderLine).toContain("3 turns");
+    expect(builderLine).toContain("$0.080");
+  });
+
+  it("truncates lines when width is provided", () => {
+    const state = createFooterState({ onUpdate: () => {} });
+    const lines = renderFooter({ graph: flatGraph(), state, theme: noopTheme, width: 40 });
+    for (const line of lines) {
+      expect(strip(line).length).toBeLessThanOrEqual(40);
+    }
+  });
 });
