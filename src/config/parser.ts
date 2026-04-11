@@ -1,4 +1,4 @@
-import { parseFrontmatter } from "@mariozechner/pi-coding-agent";
+import { extractFrontmatter } from "pi-agents";
 import { z } from "zod/v4";
 
 const AgentMemberSchema = z.object({
@@ -33,21 +33,10 @@ export type TeamConfig = z.infer<typeof TeamConfigSchema>;
 type ParseResult = { readonly ok: true; readonly value: TeamConfig } | { readonly ok: false; readonly error: string };
 
 export function parseTeamFile(content: string): ParseResult {
-  if (!content.trim()) {
-    return { ok: false, error: "Empty file" };
-  }
+  const extracted = extractFrontmatter(content);
+  if (!extracted.ok) return extracted;
 
-  if (!content.trimStart().startsWith("---")) {
-    return { ok: false, error: "Missing frontmatter — file must start with ---" };
-  }
-
-  const { frontmatter } = parseFrontmatter(content);
-
-  if (Object.keys(frontmatter).length === 0) {
-    return { ok: false, error: "Missing frontmatter — no YAML fields found" };
-  }
-
-  const parsed = TeamConfigSchema.safeParse(frontmatter);
+  const parsed = TeamConfigSchema.safeParse(extracted.value.frontmatter);
   if (!parsed.success) {
     const first = parsed.error.issues[0];
     if (!first) return { ok: false, error: "Validation failed" };
