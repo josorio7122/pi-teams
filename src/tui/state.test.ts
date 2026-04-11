@@ -279,4 +279,14 @@ describe("createFooterState", () => {
     expect(siblingEvents).toHaveLength(1);
     expect(siblingEvents[0]!.type).toBe("response");
   });
+
+  it("excludes events without _scopeId from scope queries", () => {
+    const state = createFooterState({ onUpdate: () => {} });
+    const scope = state.nextScopeId();
+    state.addEvent({ type: "delegation", from: "orch", to: "lead", task: "scoped", _scopeId: scope });
+    state.addEvent({ type: "response", agent: "other", output: "no scope" });
+    const scopeEvents = state.getEventsForScope(scope);
+    expect(scopeEvents).toHaveLength(1);
+    expect(scopeEvents[0]!.type).toBe("delegation");
+  });
 });
