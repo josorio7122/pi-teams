@@ -38,10 +38,7 @@ function buildMembers(
 ): ReadonlyArray<GraphNode> {
   return members.map((member) => {
     if ("agent" in member) {
-      const cw = member["consult-when"];
-      return cw
-        ? toAgentNode({ agents, name: member.agent, consultWhen: cw })
-        : toAgentNode({ agents, name: member.agent });
+      return toAgentNode({ agents, name: member.agent, consultWhen: member["consult-when"] });
     }
 
     return {
