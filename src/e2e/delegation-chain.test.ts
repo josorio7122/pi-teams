@@ -1,5 +1,4 @@
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { AuthStorage, ModelRegistry } from "@mariozechner/pi-coding-agent";
 import { readLog, runAgent } from "pi-agents";
@@ -13,22 +12,28 @@ import { buildTargetsBlock } from "../delegate/variables.js";
 import { buildTeamGraph } from "../graph/builder.js";
 import { resolveAgents } from "../graph/resolver.js";
 import { createFooterState } from "../tui/state.js";
-import { agentMd, fileExists } from "./helpers.js";
+import { agentMd, fileExists, setupBaseProject } from "./helpers.js";
 
 async function setupProject() {
-  const dir = await mkdtemp(join(tmpdir(), "pi-teams-e2e-"));
-
-  for (const d of [".pi/agents", ".pi/teams", ".pi/skills", ".pi/knowledge/project", ".pi/knowledge/general"]) {
-    await mkdir(join(dir, d), { recursive: true });
-  }
-  const sessionDir = join(dir, ".pi", "sessions", "e2e");
-  await mkdir(sessionDir, { recursive: true });
-
-  await writeFile(join(dir, ".pi", "skills", "e2e.md"), "# E2E Skill\nFollow instructions exactly.");
-
-  await writeFile(
-    join(dir, ".pi", "teams", "teams.md"),
-    `---
+  const dir = await setupBaseProject({
+    agents: [
+      {
+        name: "orchestrator",
+        role: "orchestrator",
+        tools: "- read\n  - delegate",
+        body: [
+          "# Orchestrator",
+          "",
+          "You coordinate work. You have one job:",
+          'Delegate to the "writer" agent. Pass the user\'s task exactly.',
+          "Do not answer directly. Always delegate.",
+          "",
+          "{{TEAMS_BLOCK}}",
+        ].join("\n"),
+      },
+      { name: "writer", role: "worker", tools: "- read\n  - bash", body: "" },
+    ],
+    teamsMd: `---
 paths:
   agents: .pi/agents/
 orchestrator:
@@ -38,30 +43,12 @@ members:
     consult-when: All writing tasks
 ---
 `,
-  );
+  });
 
   const outputPath = join(dir, "output.txt");
 
   await writeFile(
-    join(dir, ".pi", "agents", "orchestrator.md"),
-    agentMd({
-      name: "orchestrator",
-      role: "orchestrator",
-      tools: "- read\n  - delegate",
-      body: [
-        "# Orchestrator",
-        "",
-        "You coordinate work. You have one job:",
-        'Delegate to the "writer" agent. Pass the user\'s task exactly.',
-        "Do not answer directly. Always delegate.",
-        "",
-        "{{TEAMS_BLOCK}}",
-      ].join("\n"),
-    }),
-  );
-
-  await writeFile(
-    join(dir, ".pi", "agents", "writer.md"),
+    join(dir, ".pi/agents/writer.md"),
     agentMd({
       name: "writer",
       role: "worker",
@@ -76,6 +63,9 @@ members:
       ].join("\n"),
     }),
   );
+
+  const sessionDir = join(dir, ".pi", "sessions", "e2e");
+  await mkdir(sessionDir, { recursive: true });
 
   return { dir, sessionDir, outputPath, conversationLogPath: join(sessionDir, "conversation.jsonl") };
 }

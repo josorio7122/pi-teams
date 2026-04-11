@@ -1,5 +1,4 @@
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { AuthStorage, ModelRegistry } from "@mariozechner/pi-coding-agent";
 import { readLog, runAgent } from "pi-agents";
@@ -13,26 +12,32 @@ import { buildTargetsBlock } from "../delegate/variables.js";
 import { buildTeamGraph } from "../graph/builder.js";
 import { resolveAgents } from "../graph/resolver.js";
 import { createFooterState } from "../tui/state.js";
-import { agentMd, fileExists } from "./helpers.js";
+import { agentMd, fileExists, setupBaseProject } from "./helpers.js";
 
 async function setupParallelProject() {
-  const dir = await mkdtemp(join(tmpdir(), "pi-teams-e2e-parallel-"));
-
-  for (const d of [".pi/agents", ".pi/teams", ".pi/skills", ".pi/knowledge/project", ".pi/knowledge/general"]) {
-    await mkdir(join(dir, d), { recursive: true });
-  }
-  const sessionDir = join(dir, ".pi", "sessions", "e2e");
-  await mkdir(sessionDir, { recursive: true });
-
-  await writeFile(join(dir, ".pi", "skills", "e2e.md"), "# E2E Skill\nFollow instructions exactly.");
-
-  const outputA = join(dir, "output-a.txt");
-  const outputB = join(dir, "output-b.txt");
-
-  // Team: lead → worker-a + worker-b
-  await writeFile(
-    join(dir, ".pi", "teams", "teams.md"),
-    `---
+  const dir = await setupBaseProject({
+    agents: [
+      {
+        name: "lead",
+        role: "orchestrator",
+        tools: "- delegate",
+        body: [
+          "# Lead",
+          "",
+          "You coordinate work by delegating to workers.",
+          "You have two workers: worker-a and worker-b.",
+          "",
+          "IMPORTANT: When asked to delegate to BOTH workers, make BOTH delegate calls",
+          "in a SINGLE response. Do NOT wait for one to finish before starting the other.",
+          "Call delegate twice in the same message to run them in parallel.",
+          "",
+          "{{TEAMS_BLOCK}}",
+        ].join("\n"),
+      },
+      { name: "worker-a", role: "worker", tools: "- bash", body: "" },
+      { name: "worker-b", role: "worker", tools: "- bash", body: "" },
+    ],
+    teamsMd: `---
 paths:
   agents: .pi/agents/
 orchestrator:
@@ -44,31 +49,13 @@ members:
     consult-when: Write file B
 ---
 `,
-  );
+  });
+
+  const outputA = join(dir, "output-a.txt");
+  const outputB = join(dir, "output-b.txt");
 
   await writeFile(
-    join(dir, ".pi", "agents", "lead.md"),
-    agentMd({
-      name: "lead",
-      role: "orchestrator",
-      tools: "- delegate",
-      body: [
-        "# Lead",
-        "",
-        "You coordinate work by delegating to workers.",
-        "You have two workers: worker-a and worker-b.",
-        "",
-        "IMPORTANT: When asked to delegate to BOTH workers, make BOTH delegate calls",
-        "in a SINGLE response. Do NOT wait for one to finish before starting the other.",
-        "Call delegate twice in the same message to run them in parallel.",
-        "",
-        "{{TEAMS_BLOCK}}",
-      ].join("\n"),
-    }),
-  );
-
-  await writeFile(
-    join(dir, ".pi", "agents", "worker-a.md"),
+    join(dir, ".pi/agents/worker-a.md"),
     agentMd({
       name: "worker-a",
       role: "worker",
@@ -84,7 +71,7 @@ members:
   );
 
   await writeFile(
-    join(dir, ".pi", "agents", "worker-b.md"),
+    join(dir, ".pi/agents/worker-b.md"),
     agentMd({
       name: "worker-b",
       role: "worker",
@@ -98,6 +85,9 @@ members:
       ].join("\n"),
     }),
   );
+
+  const sessionDir = join(dir, ".pi", "sessions", "e2e");
+  await mkdir(sessionDir, { recursive: true });
 
   return {
     dir,
