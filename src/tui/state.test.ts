@@ -185,4 +185,44 @@ describe("createFooterState", () => {
     state.addEvent({ type: "response", agent: "a", output: "x" });
     expect(onUpdate).toHaveBeenCalledTimes(1);
   });
+
+  it("hasRunning returns false after setDone even without setRunning first", () => {
+    const state = createFooterState({ onUpdate: () => {} });
+    state.setDone({ name: "orphan", metrics });
+    expect(state.hasRunning()).toBe(false);
+  });
+
+  it("hasRunning returns false after setError on non-running agent", () => {
+    const state = createFooterState({ onUpdate: () => {} });
+    state.setError({ name: "orphan", error: "boom" });
+    expect(state.hasRunning()).toBe(false);
+  });
+
+  it("hasRunning returns false after setError on a running agent", () => {
+    const state = createFooterState({ onUpdate: () => {} });
+    state.setRunning("builder");
+    expect(state.hasRunning()).toBe(true);
+    state.setError({ name: "builder", error: "boom" });
+    expect(state.hasRunning()).toBe(false);
+  });
+
+  it("hasRunning tracks multiple concurrent agents correctly", () => {
+    const state = createFooterState({ onUpdate: () => {} });
+    state.setRunning("a");
+    state.setRunning("b");
+    expect(state.hasRunning()).toBe(true);
+    state.setDone({ name: "a", metrics });
+    expect(state.hasRunning()).toBe(true); // b still running
+    state.setDone({ name: "b", metrics });
+    expect(state.hasRunning()).toBe(false);
+  });
+
+  it("double setRunning on same agent does not corrupt counter", () => {
+    const state = createFooterState({ onUpdate: () => {} });
+    state.setRunning("scout");
+    state.setRunning("scout"); // double-set
+    expect(state.hasRunning()).toBe(true);
+    state.setDone({ name: "scout", metrics });
+    expect(state.hasRunning()).toBe(false); // should not be stuck at true
+  });
 });

@@ -1,4 +1,5 @@
 import type { AgentMetrics, AgentStatus, ConversationEvent } from "pi-agents";
+import { sumMetrics } from "pi-agents";
 
 export type { AgentStatus, ConversationEvent };
 
@@ -25,21 +26,12 @@ export function createFooterState(params: { readonly onUpdate: () => void }): Fo
   const events: ConversationEvent[] = [];
   const listeners = new Set<() => void>();
   let scopeCounter = 0;
+  let runningCount = 0;
   const scopeChildren = new Map<number, Set<number>>();
 
   function accumulateMetrics(name: string, metrics: AgentMetrics) {
     const prev = completedMetrics.get(name);
-    if (!prev) {
-      completedMetrics.set(name, metrics);
-      return;
-    }
-    completedMetrics.set(name, {
-      turns: prev.turns + metrics.turns,
-      inputTokens: prev.inputTokens + metrics.inputTokens,
-      outputTokens: prev.outputTokens + metrics.outputTokens,
-      cost: prev.cost + metrics.cost,
-      toolCalls: [...prev.toolCalls, ...metrics.toolCalls],
-    });
+    completedMetrics.set(name, prev ? sumMetrics(prev, metrics) : metrics);
   }
 
   const notify = () => params.onUpdate();
@@ -51,6 +43,7 @@ export function createFooterState(params: { readonly onUpdate: () => void }): Fo
   return {
     get: (name) => agents.get(name) ?? IDLE,
     setRunning: (name) => {
+      if (agents.get(name)?.status !== "running") runningCount++;
       agents.set(name, { status: "running" });
       notify();
     },
@@ -62,18 +55,20 @@ export function createFooterState(params: { readonly onUpdate: () => void }): Fo
       }
     },
     setDone: ({ name, metrics }) => {
+      if (agents.get(name)?.status === "running") runningCount--;
       accumulateMetrics(name, metrics);
       const accumulated = completedMetrics.get(name) ?? metrics;
       agents.set(name, { status: "done", metrics: accumulated });
       notify();
     },
     setError: ({ name, error, metrics }) => {
+      if (agents.get(name)?.status === "running") runningCount--;
       if (metrics) accumulateMetrics(name, metrics);
       const accumulated = completedMetrics.get(name);
       agents.set(name, { status: "error", error, ...(accumulated ? { metrics: accumulated } : {}) });
       notify();
     },
-    hasRunning: () => [...agents.values()].some((s) => s.status === "running"),
+    hasRunning: () => runningCount > 0,
     allMetrics: () => {
       const result: AgentMetrics[] = [];
       for (const s of agents.values()) {
