@@ -184,7 +184,7 @@ export default function (pi: ExtensionAPI) {
   pi.on("agent_end", async (event) => {
     if (!sessionRef.conversationLogPath || !teamGraph) return;
 
-    const text = extractLastAssistantText(event.messages as unknown as ReadonlyArray<Record<string, unknown>>);
+    const text = extractLastAssistantText(event.messages as ReadonlyArray<unknown>);
     if (text.trim()) {
       await appendToLog(sessionRef.conversationLogPath, {
         ts: new Date().toISOString(),

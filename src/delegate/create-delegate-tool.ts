@@ -30,6 +30,12 @@ const DelegateParams = Type.Object({
 
 type DelegateInput = Static<typeof DelegateParams>;
 
+function getDelegateEvents(details: unknown): ReadonlyArray<ConversationEvent> {
+  if (!details || typeof details !== "object") return [];
+  const d = details as Record<string, unknown>;
+  return Array.isArray(d.events) ? (d.events as ReadonlyArray<ConversationEvent>) : [];
+}
+
 function buildRunParams(params: {
   readonly match: DelegateTarget;
   readonly task: string;
@@ -93,7 +99,7 @@ export function createDelegateTool(params: CreateDelegateToolParams): ToolDefini
 
     // biome-ignore lint/complexity/useMaxParams: implements Pi's ToolDefinition.renderResult (4 positional params)
     renderResult(result, options, theme) {
-      const all = (result.details as { events?: ReadonlyArray<ConversationEvent> })?.events ?? [];
+      const all = getDelegateEvents(result.details);
       const tail = all.slice(1);
 
       const events = options.isPartial
