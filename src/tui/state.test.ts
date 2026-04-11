@@ -225,4 +225,58 @@ describe("createFooterState", () => {
     state.setDone({ name: "scout", metrics });
     expect(state.hasRunning()).toBe(false); // should not be stuck at true
   });
+
+  it("accumulates metrics when agent errors on re-invocation", () => {
+    const state = createFooterState({ onUpdate: () => {} });
+    const m1: AgentMetrics = {
+      turns: 2,
+      inputTokens: 500,
+      outputTokens: 200,
+      cost: 0.03,
+      toolCalls: [{ name: "read", args: {} }],
+    };
+    const m2: AgentMetrics = {
+      turns: 1,
+      inputTokens: 300,
+      outputTokens: 100,
+      cost: 0.02,
+      toolCalls: [{ name: "bash", args: {} }],
+    };
+    state.setDone({ name: "scout", metrics: m1 });
+    state.setRunning("scout");
+    state.setError({ name: "scout", error: "timeout", metrics: m2 });
+    const s = state.get("scout");
+    expect(s.status).toBe("error");
+    if (s.status === "error") {
+      expect(s.error).toBe("timeout");
+      expect(s.metrics?.turns).toBe(3);
+      expect(s.metrics?.inputTokens).toBe(800);
+      expect(s.metrics?.cost).toBeCloseTo(0.05);
+      expect(s.metrics?.toolCalls).toHaveLength(2);
+    }
+  });
+
+  it("getEventsForScope includes events from nested child scopes", () => {
+    const state = createFooterState({ onUpdate: () => {} });
+    const parent = state.nextScopeId();
+    const child = state.nextScopeId(parent);
+    const grandchild = state.nextScopeId(child);
+    const sibling = state.nextScopeId();
+
+    state.addEvent({ type: "delegation", from: "orch", to: "lead", task: "plan", _scopeId: parent });
+    state.addEvent({ type: "delegation", from: "lead", to: "dev", task: "build", _scopeId: child });
+    state.addEvent({ type: "response", agent: "dev", output: "done", _scopeId: grandchild });
+    state.addEvent({ type: "response", agent: "other", output: "unrelated", _scopeId: sibling });
+
+    const parentEvents = state.getEventsForScope(parent);
+    expect(parentEvents).toHaveLength(3);
+    expect(parentEvents.map((e) => e.type)).toEqual(["delegation", "delegation", "response"]);
+
+    const childEvents = state.getEventsForScope(child);
+    expect(childEvents).toHaveLength(2);
+
+    const siblingEvents = state.getEventsForScope(sibling);
+    expect(siblingEvents).toHaveLength(1);
+    expect(siblingEvents[0]!.type).toBe("response");
+  });
 });
