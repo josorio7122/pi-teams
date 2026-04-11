@@ -168,6 +168,16 @@ async function animate() {
   render();
   await sleep(1000);
 
+  // Phase 5b: Re-invoke frontend-dev (demonstrate metric accumulation)
+  state.setRunning("frontend-dev");
+  for (let i = 0; i < 15; i++) {
+    render();
+    await sleep(80);
+  }
+  state.setDone({ name: "frontend-dev", metrics: randomMetrics({ turns: 3, scale: 2 }) });
+  render();
+  await sleep(1000);
+
   // Phase 6: Validation team activates
   state.setRunning("validation-lead");
   state.setRunning("qa-engineer");

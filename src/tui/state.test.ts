@@ -124,6 +124,61 @@ describe("createFooterState", () => {
     expect(listener).toHaveBeenCalledTimes(1); // no more after unsub
   });
 
+  it("accumulates metrics across re-invocations of same agent", () => {
+    const state = createFooterState({ onUpdate: () => {} });
+    const m1: AgentMetrics = {
+      turns: 2,
+      inputTokens: 500,
+      outputTokens: 200,
+      cost: 0.03,
+      toolCalls: [{ name: "read", args: {} }],
+    };
+    const m2: AgentMetrics = {
+      turns: 3,
+      inputTokens: 800,
+      outputTokens: 300,
+      cost: 0.05,
+      toolCalls: [{ name: "bash", args: {} }],
+    };
+    state.setDone({ name: "scout", metrics: m1 });
+    // Re-invoke same agent
+    state.setRunning("scout");
+    state.setDone({ name: "scout", metrics: m2 });
+    const s = state.get("scout");
+    expect(s.status).toBe("done");
+    if (s.status === "done") {
+      expect(s.metrics.turns).toBe(5); // 2 + 3
+      expect(s.metrics.inputTokens).toBe(1300); // 500 + 800
+      expect(s.metrics.cost).toBe(0.08); // 0.03 + 0.05
+      expect(s.metrics.toolCalls).toHaveLength(2); // 1 + 1
+    }
+  });
+
+  it("allMetrics returns accumulated totals across re-invocations", () => {
+    const state = createFooterState({ onUpdate: () => {} });
+    const m1: AgentMetrics = {
+      turns: 2,
+      inputTokens: 500,
+      outputTokens: 200,
+      cost: 0.03,
+      toolCalls: [{ name: "read", args: {} }],
+    };
+    const m2: AgentMetrics = {
+      turns: 3,
+      inputTokens: 800,
+      outputTokens: 300,
+      cost: 0.05,
+      toolCalls: [{ name: "bash", args: {} }],
+    };
+    state.setDone({ name: "scout", metrics: m1 });
+    state.setRunning("scout");
+    state.setDone({ name: "scout", metrics: m2 });
+    const all = state.allMetrics();
+    expect(all).toHaveLength(1); // one agent, accumulated
+    expect(all[0]!.turns).toBe(5);
+    expect(all[0]!.cost).toBe(0.08);
+  });
+
   it("calls onUpdate when event is added", () => {
     const onUpdate = vi.fn();
     const state = createFooterState({ onUpdate });

@@ -21,10 +21,26 @@ const IDLE: AgentStatus = { status: "idle" };
 
 export function createFooterState(params: { readonly onUpdate: () => void }): FooterState {
   const agents = new Map<string, AgentStatus>();
+  const completedMetrics = new Map<string, AgentMetrics>();
   const events: ConversationEvent[] = [];
   const listeners = new Set<() => void>();
   let scopeCounter = 0;
   const scopeChildren = new Map<number, Set<number>>();
+
+  function accumulateMetrics(name: string, metrics: AgentMetrics) {
+    const prev = completedMetrics.get(name);
+    if (!prev) {
+      completedMetrics.set(name, metrics);
+      return;
+    }
+    completedMetrics.set(name, {
+      turns: prev.turns + metrics.turns,
+      inputTokens: prev.inputTokens + metrics.inputTokens,
+      outputTokens: prev.outputTokens + metrics.outputTokens,
+      cost: prev.cost + metrics.cost,
+      toolCalls: [...prev.toolCalls, ...metrics.toolCalls],
+    });
+  }
 
   const notify = () => params.onUpdate();
   const notifyWithListeners = () => {
@@ -46,11 +62,15 @@ export function createFooterState(params: { readonly onUpdate: () => void }): Fo
       }
     },
     setDone: ({ name, metrics }) => {
-      agents.set(name, { status: "done", metrics });
+      accumulateMetrics(name, metrics);
+      const accumulated = completedMetrics.get(name) ?? metrics;
+      agents.set(name, { status: "done", metrics: accumulated });
       notify();
     },
     setError: ({ name, error, metrics }) => {
-      agents.set(name, { status: "error", error, ...(metrics ? { metrics } : {}) });
+      if (metrics) accumulateMetrics(name, metrics);
+      const accumulated = completedMetrics.get(name);
+      agents.set(name, { status: "error", error, ...(accumulated ? { metrics: accumulated } : {}) });
       notify();
     },
     hasRunning: () => [...agents.values()].some((s) => s.status === "running"),
