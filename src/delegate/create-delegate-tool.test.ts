@@ -2,14 +2,9 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { stubConfig } from "../test-helpers.js";
+import { makeTarget, stubConfig } from "../test-helpers.js";
 import { createFooterState } from "../tui/state.js";
 import { createDelegateTool } from "./create-delegate-tool.js";
-import type { DelegateTarget } from "./targets.js";
-
-function makeTarget(name: string, opts?: Partial<DelegateTarget>): DelegateTarget {
-  return { name, config: stubConfig(name), ...opts };
-}
 
 describe("createDelegateTool", () => {
   const mockRunAgent = vi.fn();

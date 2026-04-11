@@ -1,4 +1,5 @@
 import type { AgentConfig } from "pi-agents";
+import type { DelegateTarget } from "./delegate/targets.js";
 
 export function stubConfig(
   name: string,
@@ -28,4 +29,8 @@ export function stubConfig(
     filePath: `.pi/agents/${name}.md`,
     source: "project",
   };
+}
+
+export function makeTarget(name: string, opts?: Partial<DelegateTarget>): DelegateTarget {
+  return { name, config: stubConfig(name), ...opts };
 }
