@@ -1,44 +1,10 @@
-import type { AgentConfig } from "pi-agents";
 import { describe, expect, it } from "vitest";
 import type { TeamConfig } from "../config/parser.js";
+import { stubConfig } from "../test-helpers.js";
 import { buildTeamGraph } from "./builder.js";
 
-function stubAgent(name: string): AgentConfig {
-  return {
-    frontmatter: {
-      name,
-      description: `${name} agent`,
-      model: "anthropic/claude-sonnet-4-6",
-      role: "worker",
-      color: "#36f9f6",
-      icon: "🔨",
-      domain: [{ path: "src/", read: true, write: true, delete: false }],
-      tools: ["read", "write"],
-      skills: [{ path: ".pi/skills/test.md", when: "Always" }],
-      knowledge: {
-        project: {
-          path: `.pi/knowledge/project/${name}.yaml`,
-          description: "Project",
-          updatable: true,
-          "max-lines": 5000,
-        },
-        general: {
-          path: `.pi/knowledge/general/${name}.yaml`,
-          description: "General",
-          updatable: true,
-          "max-lines": 3000,
-        },
-      },
-      conversation: { path: ".pi/sessions/{{SESSION_ID}}/conversation.jsonl" },
-    },
-    systemPrompt: `You are ${name}.`,
-    filePath: `.pi/agents/${name}.md`,
-    source: "project",
-  };
-}
-
 function agentMap(...names: string[]) {
-  return new Map(names.map((n) => [n, stubAgent(n)]));
+  return new Map(names.map((n) => [n, stubConfig(n)]));
 }
 
 describe("buildTeamGraph", () => {

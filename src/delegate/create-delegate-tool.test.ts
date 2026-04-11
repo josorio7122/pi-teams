@@ -1,35 +1,11 @@
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { AgentConfig } from "pi-agents";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { stubConfig } from "../test-helpers.js";
 import { createFooterState } from "../tui/state.js";
 import { createDelegateTool } from "./create-delegate-tool.js";
 import type { DelegateTarget } from "./targets.js";
-
-function stubConfig(name: string, tools: string[] = ["read"]): AgentConfig {
-  return {
-    frontmatter: {
-      name,
-      description: `${name} agent`,
-      model: "anthropic/claude-sonnet-4-6",
-      role: "worker",
-      color: "#fff",
-      icon: "🔨",
-      domain: [{ path: "src/", read: true, write: true, delete: false }],
-      tools,
-      skills: [{ path: ".pi/skills/test.md", when: "Always" }],
-      knowledge: {
-        project: { path: `.pi/k/p/${name}.yaml`, description: "P", updatable: true, "max-lines": 100 },
-        general: { path: `.pi/k/g/${name}.yaml`, description: "G", updatable: true, "max-lines": 100 },
-      },
-      conversation: { path: ".pi/sessions/{{SESSION_ID}}/conversation.jsonl" },
-    },
-    systemPrompt: `You are ${name}.`,
-    filePath: `.pi/agents/${name}.md`,
-    source: "project",
-  };
-}
 
 function makeTarget(name: string, opts?: Partial<DelegateTarget>): DelegateTarget {
   return { name, config: stubConfig(name), ...opts };
@@ -140,7 +116,7 @@ describe("createDelegateTool", () => {
       ...baseDeps(),
       targets: [
         makeTarget("eng-lead", {
-          config: stubConfig("eng-lead", ["read", "delegate"]),
+          config: stubConfig("eng-lead", { tools: ["read", "delegate"] }),
           teamMembers: [
             { type: "agent", config: stubConfig("frontend-dev"), consultWhen: "UI" },
             { type: "agent", config: stubConfig("backend-dev"), consultWhen: "APIs" },
@@ -167,7 +143,7 @@ describe("createDelegateTool", () => {
       ...baseDeps(),
       targets: [
         makeTarget("eng-lead", {
-          config: stubConfig("eng-lead", ["read", "delegate"]),
+          config: stubConfig("eng-lead", { tools: ["read", "delegate"] }),
           teamMembers: [{ type: "agent", config: stubConfig("frontend-dev") }],
         }),
       ],
@@ -229,7 +205,7 @@ describe("createDelegateTool", () => {
       sharedContext: [{ path: "AGENTS.md", content: "shared across all" }],
       targets: [
         makeTarget("eng-lead", {
-          config: stubConfig("eng-lead", ["read", "delegate"]),
+          config: stubConfig("eng-lead", { tools: ["read", "delegate"] }),
           teamMembers: [{ type: "agent", config: stubConfig("frontend-dev") }],
         }),
       ],

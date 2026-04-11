@@ -1,31 +1,7 @@
-import type { AgentConfig } from "pi-agents";
 import { describe, expect, it } from "vitest";
 import type { AgentNode, GraphNode, TeamNode } from "../graph/builder.js";
+import { stubConfig } from "../test-helpers.js";
 import { extractTargets } from "./targets.js";
-
-function stubConfig(name: string): AgentConfig {
-  return {
-    frontmatter: {
-      name,
-      description: `${name} agent`,
-      model: "anthropic/claude-sonnet-4-6",
-      role: "worker",
-      color: "#fff",
-      icon: "🔨",
-      domain: [{ path: "src/", read: true, write: true, delete: false }],
-      tools: ["read"],
-      skills: [{ path: ".pi/skills/test.md", when: "Always" }],
-      knowledge: {
-        project: { path: `.pi/k/p/${name}.yaml`, description: "P", updatable: true, "max-lines": 100 },
-        general: { path: `.pi/k/g/${name}.yaml`, description: "G", updatable: true, "max-lines": 100 },
-      },
-      conversation: { path: ".pi/sessions/{{SESSION_ID}}/conversation.jsonl" },
-    },
-    systemPrompt: `You are ${name}.`,
-    filePath: `.pi/agents/${name}.md`,
-    source: "project",
-  };
-}
 
 function agentNode(name: string, consultWhen?: string): AgentNode {
   return consultWhen

@@ -1,7 +1,8 @@
 import type { ThemeColor } from "@mariozechner/pi-coding-agent";
-import type { AgentConfig, AgentMetrics } from "pi-agents";
+import type { AgentMetrics } from "pi-agents";
 import { describe, expect, it } from "vitest";
 import type { TeamGraph } from "../graph/builder.js";
+import { stubConfig } from "../test-helpers.js";
 import { renderFooter } from "./render.js";
 import { createFooterState } from "./state.js";
 
@@ -12,30 +13,6 @@ const noopTheme = {
   fg: (_color: ThemeColor, text: string) => text,
   bold: (text: string) => text,
 };
-
-function stubAgent(name: string, model = "anthropic/claude-sonnet-4-6"): AgentConfig {
-  return {
-    frontmatter: {
-      name,
-      description: `${name} agent`,
-      model,
-      role: "worker",
-      color: "#36f9f6",
-      icon: "🔨",
-      domain: [{ path: "src/", read: true, write: true, delete: false }],
-      tools: ["read"],
-      skills: [{ path: ".pi/skills/test.md", when: "Always" }],
-      knowledge: {
-        project: { path: `.pi/k/p/${name}.yaml`, description: "P", updatable: true, "max-lines": 100 },
-        general: { path: `.pi/k/g/${name}.yaml`, description: "G", updatable: true, "max-lines": 100 },
-      },
-      conversation: { path: ".pi/sessions/{{SESSION_ID}}/conversation.jsonl" },
-    },
-    systemPrompt: `You are ${name}.`,
-    filePath: `.pi/agents/${name}.md`,
-    source: "project",
-  };
-}
 
 const metrics: AgentMetrics = {
   turns: 3,
@@ -50,24 +27,24 @@ const metrics: AgentMetrics = {
 
 function flatGraph(): TeamGraph {
   return {
-    orchestrator: { type: "agent", config: stubAgent("orchestrator", "anthropic/claude-opus-4-6") },
+    orchestrator: { type: "agent", config: stubConfig("orchestrator", { model: "anthropic/claude-opus-4-6" }) },
     members: [
-      { type: "agent", config: stubAgent("builder") },
-      { type: "agent", config: stubAgent("reviewer") },
+      { type: "agent", config: stubConfig("builder") },
+      { type: "agent", config: stubConfig("reviewer") },
     ],
   };
 }
 
 function nestedGraph(): TeamGraph {
   return {
-    orchestrator: { type: "agent", config: stubAgent("orchestrator", "anthropic/claude-opus-4-6") },
+    orchestrator: { type: "agent", config: stubConfig("orchestrator", { model: "anthropic/claude-opus-4-6" }) },
     members: [
       {
         type: "team",
-        lead: { type: "agent", config: stubAgent("eng-lead", "anthropic/claude-opus-4-6") },
+        lead: { type: "agent", config: stubConfig("eng-lead", { model: "anthropic/claude-opus-4-6" }) },
         members: [
-          { type: "agent", config: stubAgent("frontend-dev") },
-          { type: "agent", config: stubAgent("backend-dev") },
+          { type: "agent", config: stubConfig("frontend-dev") },
+          { type: "agent", config: stubConfig("backend-dev") },
         ],
       },
     ],
