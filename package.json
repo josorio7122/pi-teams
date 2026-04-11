@@ -22,6 +22,9 @@
   "pi": {
     "extensions": [
       "./src/index.ts"
+    ],
+    "themes": [
+      "./themes"
     ]
   },
   "dependencies": {
@@ -44,11 +47,11 @@
     "@mariozechner/pi-tui": "*",
     "@sinclair/typebox": "*"
   },
-  "bundledDependencies": [
+  "bundleDependencies": [
     "pi-agents",
     "zod"
   ],
-  "bundleDependencies": [
+  "bundledDependencies": [
     "pi-agents",
     "zod"
   ]
