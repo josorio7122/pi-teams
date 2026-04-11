@@ -42,8 +42,8 @@ describe("createDelegateTool", () => {
 
   it("has description and parameters", () => {
     const tool = createDelegateTool({ ...baseDeps(), targets: [makeTarget("builder")] });
-    expect(tool.description).toBeDefined();
-    expect(tool.parameters).toBeDefined();
+    expect(tool.description).toContain("Delegate");
+    expect(tool.parameters).toHaveProperty("properties");
   });
 
   it("includes promptGuidelines with target names", () => {
