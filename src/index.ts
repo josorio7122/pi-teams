@@ -9,7 +9,7 @@ import {
   assembleSystemPrompt,
   discoverContextFiles,
   ensureLogExists,
-  readFileSafe,
+  loadSkillContents,
   runAgent,
 } from "pi-agents";
 import { parseTeamFile } from "./config/parser.js";
@@ -151,16 +151,10 @@ export default function (pi: ExtensionAPI) {
     const orch = teamGraph.orchestrator.config;
     const fm = orch.frontmatter;
 
-    // Read orchestrator's skills and conversation log — parallel I/O
-    // Knowledge files are NOT pre-loaded; agent reads them via read-knowledge tool
-    // Read skill files — conversation log and knowledge are NOT pre-loaded (agents use tools)
-    const skillResults = await Promise.all(fm.skills.map((s) => readFileSafe(join(ctx.cwd, s.path))));
-
-    const skillContents = fm.skills.map((s, i) => ({
-      name: s.path.split("/").pop()?.replace(".md", "") ?? s.path,
-      when: s.when,
-      content: skillResults[i] ?? "",
-    }));
+    // Read skill files upfront — knowledge is NOT pre-loaded (agents use tools)
+    const skillContents = await loadSkillContents(
+      fm.skills.map((s) => ({ ...s, path: join(ctx.cwd, s.path) })),
+    );
 
     // Assemble orchestrator system prompt with fresh content
     const systemPrompt = assembleSystemPrompt({
