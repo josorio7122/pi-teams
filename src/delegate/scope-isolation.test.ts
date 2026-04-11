@@ -47,25 +47,18 @@ describe("delegate tool: scope isolation", () => {
       footerState,
     });
 
+    type MockResult = {
+      output: string;
+      metrics: { turns: number; inputTokens: number; outputTokens: number; cost: number; toolCalls: never[] };
+    };
+
     // worker-a takes longer than worker-b
-    let resolveA: (v: {
-      output: string;
-      metrics: { turns: number; inputTokens: number; outputTokens: number; cost: number; toolCalls: never[] };
-    }) => void;
-    const promiseA = new Promise<{
-      output: string;
-      metrics: { turns: number; inputTokens: number; outputTokens: number; cost: number; toolCalls: never[] };
-    }>((r) => {
+    let resolveA: (v: MockResult) => void;
+    const promiseA = new Promise<MockResult>((r) => {
       resolveA = r;
     });
-    let resolveB: (v: {
-      output: string;
-      metrics: { turns: number; inputTokens: number; outputTokens: number; cost: number; toolCalls: never[] };
-    }) => void;
-    const promiseB = new Promise<{
-      output: string;
-      metrics: { turns: number; inputTokens: number; outputTokens: number; cost: number; toolCalls: never[] };
-    }>((r) => {
+    let resolveB: (v: MockResult) => void;
+    const promiseB = new Promise<MockResult>((r) => {
       resolveB = r;
     });
 
