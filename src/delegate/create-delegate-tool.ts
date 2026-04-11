@@ -97,7 +97,7 @@ export function createDelegateTool(params: CreateDelegateToolParams): ToolDefini
       return renderConversation({ events, agents: params.agents, theme });
     },
 
-    // biome-ignore lint/complexity/useMaxParams: implements Pi's ToolDefinition.renderResult (4 positional params)
+    // biome-ignore lint/complexity/useMaxParams: implements Pi's ToolDefinition.renderResult (3 positional params)
     renderResult(result, options, theme) {
       const all = getDelegateEvents(result.details);
       const tail = all.slice(1);
