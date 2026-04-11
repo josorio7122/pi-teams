@@ -114,14 +114,18 @@ describe("renderFooter", () => {
     expect(builderLine).toContain("Domain violation");
   });
 
-  it("shows aggregate stats in header when metrics exist", () => {
+  it("shows aggregate stats on orchestrator line when metrics exist", () => {
     const state = createFooterState({ onUpdate: () => {} });
     state.setDone({ name: "builder", metrics });
     state.setDone({ name: "reviewer", metrics });
     const lines = renderFooter({ graph: flatGraph(), state, theme: noopTheme });
     const header = strip(lines[0] ?? "");
-    expect(header).toContain("Σ");
-    expect(header).toContain("$0.160");
+    expect(header).not.toContain("Σ"); // no longer in header
+    // Orchestrator is line index 2 (header, blank, orchestrator)
+    const orchLine = strip(lines[2] ?? "");
+    expect(orchLine).toContain("orchestrator");
+    expect(orchLine).toContain("Σ");
+    expect(orchLine).toContain("$0.160");
   });
 
   it("includes spacer lines between agents", () => {

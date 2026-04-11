@@ -92,19 +92,19 @@ export function renderFooter(params: {
   const nameWidth = computeMaxNameLen({ graph });
 
   // Header
-  const allMetrics = state.allMetrics();
-  const headerLabel = theme.bold("pi-teams");
-  const headerStats =
-    allMetrics.length > 0 ? `  ${theme.fg("dim", `Σ ${formatUsageStats(aggregateMetricsArray(allMetrics))}`)}` : "";
-  const header = `${headerLabel}${headerStats}`;
+  const header = theme.bold("pi-teams");
 
-  // Orchestrator
+  // Orchestrator + aggregate
   const orchLine = agentLine({ node: graph.orchestrator, state, theme, nameWidth });
+  const allMetrics = state.allMetrics();
+  const aggSuffix =
+    allMetrics.length > 0 ? `  ${theme.fg("dim", `Σ ${formatUsageStats(aggregateMetricsArray(allMetrics))}`)}` : "";
+  const orchWithAgg = `${orchLine}${aggSuffix}`;
 
   // Tree
   const treeLines = renderMembers({ members: graph.members, prefix: "", state, theme, nameWidth });
 
-  const lines = [header, "", orchLine, ...treeLines];
+  const lines = [header, "", orchWithAgg, ...treeLines];
   if (!width) return lines;
   return lines.map((l) => truncateToWidth(l, width));
 }
