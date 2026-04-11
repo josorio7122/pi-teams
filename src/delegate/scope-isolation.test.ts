@@ -2,7 +2,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { makeTarget, stubConfig } from "../test-helpers.js";
+import { makeTarget } from "../test-helpers.js";
 import { createFooterState } from "../tui/state.js";
 import { createDelegateTool } from "./create-delegate-tool.js";
 
