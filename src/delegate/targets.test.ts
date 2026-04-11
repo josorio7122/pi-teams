@@ -78,4 +78,35 @@ describe("extractTargets", () => {
   it("returns empty array for empty members", () => {
     expect(extractTargets([])).toEqual([]);
   });
+
+  it("handles nested teams (team containing team members)", () => {
+    const members: GraphNode[] = [
+      teamNode({
+        leadName: "eng-lead",
+        members: [
+          agentNode("dev"),
+          teamNode({
+            leadName: "fe-lead",
+            members: [agentNode("designer"), agentNode("stylist")],
+            consultWhen: "Frontend work",
+          }),
+        ],
+        consultWhen: "Engineering",
+      }),
+    ];
+    const targets = extractTargets(members);
+
+    expect(targets).toHaveLength(1);
+    expect(targets[0]!.name).toBe("eng-lead");
+    expect(targets[0]!.consultWhen).toBe("Engineering");
+    expect(targets[0]!.teamMembers).toHaveLength(2);
+
+    // The nested team is preserved as a GraphNode for recursive extraction
+    const nestedTeam = targets[0]!.teamMembers![1]!;
+    expect(nestedTeam.type).toBe("team");
+    if (nestedTeam.type === "team") {
+      expect(nestedTeam.lead.config.frontmatter.name).toBe("fe-lead");
+      expect(nestedTeam.members).toHaveLength(2);
+    }
+  });
 });
