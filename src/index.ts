@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import type { ContextFile } from "pi-agents";
 import {
+  ANIMATION_FRAME_MS,
   appendToLog,
   assembleSystemPrompt,
   discoverContextFiles,
@@ -108,7 +109,7 @@ export default function (pi: ExtensionAPI) {
         requestRender = () => tui.requestRender();
         const interval = setInterval(() => {
           if (footerState.hasRunning()) tui.requestRender();
-        }, 80);
+        }, ANIMATION_FRAME_MS);
         return {
           render: (width) => renderFooter({ graph, state: footerState, theme, width }),
           invalidate() {},

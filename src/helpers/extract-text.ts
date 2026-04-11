@@ -1,6 +1,4 @@
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
+import { isRecord } from "pi-agents";
 
 export function extractLastAssistantText(messages: ReadonlyArray<unknown>): string {
   for (let i = messages.length - 1; i >= 0; i--) {
